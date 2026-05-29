@@ -36,8 +36,15 @@
 
 - [x] **animepahe `1.0.2-cb2`**：后端探活全部正常；修电影标题匹配（原来要求完全相等→改 normalize+子串+优先Movie+回退原名搜索）、TV 验证失败回退首结果。**kwik 提取未能本地验证**（shell 直连这些域名会卡、WebFetch 会把 HTML 转 markdown 丢 data-src），若真机不能播需专查 kwik。
 - [x] **moviebox `1.1.1-cb1`**：电影本地实测原来返 0；根因是 MovieBox 把流从 `play-info`（现返回空 streams）挪到了 subject `get` 的 `data.resourceDetectors[].downloadUrl`（签名直链 MP4，实测 206/video/mp4 可 seek）。已改用 resourceDetectors，修了把 `h265` 误判成 `265p` 的清晰度 bug。**TV 仍不出**：剧集的 downloadUrl 为空，只给外部页面 resourceLink（ailok.pe/fzmovies.cms），需要再爬外站（暂缓）。**MovieBox 几乎没有中文音轨**（连 Breaking Bad 的 dubs 都没中文），不是好的中文源。
-- [ ] vidnest-anime / vixsrc / dooflix / animekai / moviesmod —— 待办
-- 中文源：现有 provider 都不理想，**后续考虑单独新增华语/国漫源**（已在 Canvas 标注）。
+- [—] **vidnest-anime**：上游后端挂了。`backend.vidnest.fun` DNS 已 ENOTFOUND；`first.vidnest.fun` 返 Cloudflare 530（源站不可达）。非代码问题，待后端恢复再看（可改基址为 first.vidnest.fun 但当前也 530）。
+- [—] **dooflix**：API key 轮换失效。`panel.watchkaroabhi.com` 返 401 "Unauthorized access"；现 key `qNhKLJiZVyoKdi9NCQGz8CIGrpUijujE` 已废。新 key 在 DooFlix App（包名 `com.king.moja`）里，需反编译 APK 才能拿到（key 也可走 `X-API-Key` header）。**等用户提供新 key**。
+- [?] **vixsrc / moviesmod**：本地无法验证——vixsrc.to / moviesmod 用 **Cloudflare WAF 拦数据中心 IP**（我测试服务器返 403 "Sorry, you have been blocked"）。**用户真机（住宅IP）很可能正常**。代码看着是新的，**不盲改**，需用户真机测；若真机也不行再要日志。
+- [?] **animekai**：动画专用 + animekai.to 有 Cloudflare；本地用非动画测无意义。难度高，需真机 + 动画标题验证。
+- 中文源：现有 provider 都不理想（moviebox 几乎无中文音轨），**后续考虑单独新增华语/国漫源**（已在 Canvas 标注）。
+
+### 本地测试能力边界（重要）
+- **node fetch 能联网**，可本地跑 getStreams 验证**非 Cloudflare** 的 API 型 provider（已用于 animepahe/moviebox/dooflix/vidnest 诊断）。
+- **Cloudflare WAF 站点（vixsrc/moviesmod/animekai/4khdhub的hubcloud等）会拦数据中心 IP（403/challenge）**，本地测不了，但用户真机通常能过。这类 provider 不要因本地 403 就判定坏、更不要盲改。
 
 排查工具备忘：动画后端探活可用 WebFetch 打这些（已确认活）：
 - 搜索: `https://animepaheproxy.phisheranimepahe.workers.dev/?url=https://animepahe.pw/api?m=search&l=8&q=<名>`（注意 & 要按需转义）
