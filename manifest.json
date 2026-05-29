@@ -1,12 +1,12 @@
 {
   "name": "cbrepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scrapers": [
     {
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "4KHDHub direct links",
-      "version": "1.0.2",
+      "version": "1.0.3-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -64,7 +64,7 @@
       "id": "uhdmovies",
       "name": "UHDMovies",
       "description": "UHD Movies streaming with multiple resolution",
-      "version": "1.2.0",
+      "version": "1.2.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -145,7 +145,7 @@
       "id": "streamflix",
       "name": "StreamFlix",
       "description": "Direct links via StreamFlix API",
-      "version": "1.0.0",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -190,7 +190,7 @@
       "id": "vixsrc",
       "name": "Vixsrc",
       "description": "Vixsrc M3U8 streaming with auto quality selection",
-      "version": "1.0.0",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -304,7 +304,7 @@
       "id": "vidlink",
       "name": "Vidlink",
       "description": "Vidlink streaming with encrypted TMDB ID support for movies and TV shows",
-      "version": "1.0.0",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -463,7 +463,7 @@
       "id": "hdhub4u",
       "name": "HDHub4u",
       "description": "Direct links from HDHub4u with high-speed download support",
-      "version": "1.1.0",
+      "version": "1.1.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -508,7 +508,7 @@
       "id": "dooflix",
       "name": "DooFlix",
       "description": "Fast streaming provider with direct TMDB integration",
-      "version": "1.0.0",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
