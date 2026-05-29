@@ -1,0 +1,17 @@
+# Changelog
+
+## 1.1.0 - 2026-05-29
+
+- AnimePahe provider bumped to `1.0.1-cb1`.
+- Added an AnimePahe fallback path for Japanese anime TV episodes when the original IMDb/MAL mapping chain returns no usable sources.
+- The fallback searches by TMDB title, resolves the target episode, and returns AnimePahe stream entries with playback headers.
+- Current focus is anime. AnimeKai and VidnestAnime were tested but not bumped yet because their lookup paths still returned no usable streams in this environment.
+- Known issue from user testing: the earlier movie/TV batch did not play The Boys S1E1. This release does not claim to fix that title.
+
+## 1.0.1 - 2026-05-29
+
+- Repo renamed to `cbrepo` in `manifest.json`.
+- Bumped the first repair batch provider versions so Nuvio can refresh cached scrapers.
+- Updated Vixsrc for the newer API/embed playlist flow.
+- Partially refreshed 4KHDHub HubCloud/HubDrive parsing.
+- Marked first batch versions for 4KHDHub, Vixsrc, Vidlink, StreamFlix, DooFlix, UHDMovies, and HDHub4u.
