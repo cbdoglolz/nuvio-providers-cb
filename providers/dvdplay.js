@@ -765,22 +765,47 @@ function processDownloadLink(downloadPageUrl) {
 }
 
 // Find best match from search results (enhanced from 4KHDHub)
-function findBestMatch(results, query) {
+function extractYearFromTitle(title) {
+    var m = String(title || '').match(/\b((?:19|20)\d{2})\b/);
+    return m ? m[1] : null;
+}
+
+function findBestMatch(results, query, targetYear) {
     if (!results || results.length === 0) return null;
-    if (results.length === 1) return results[0];
+    var wantedYear = targetYear ? String(targetYear) : null;
+
+    if (wantedYear) {
+        var yearMatches = results.filter(function (r) {
+            var resultYear = extractYearFromTitle(r.title);
+            return !resultYear || resultYear === wantedYear;
+        });
+        if (yearMatches.length > 0) {
+            results = yearMatches;
+        }
+    }
+    if (results.length === 1) {
+        if (wantedYear) {
+            var onlyYear = extractYearFromTitle(results[0].title);
+            if (onlyYear && onlyYear !== wantedYear) return null;
+        }
+        return results[0];
+    }
 
     var scored = results.map(function (r) {
         var score = 0;
+        var resultYear = extractYearFromTitle(r.title);
         if (normalizeTitle(r.title) === normalizeTitle(query)) score += 100;
         var sim = calculateSimilarity(r.title, query); score += sim * 50;
         if (normalizeTitle(r.title).indexOf(normalizeTitle(query)) !== -1) score += 15; // quick containment bonus
         var lengthDiff = Math.abs(r.title.length - query.length);
         score += Math.max(0, 10 - lengthDiff / 5);
-        if (/(19|20)\d{2}/.test(r.title)) score += 5;
+        if (wantedYear && resultYear === wantedYear) score += 45;
+        else if (wantedYear && resultYear && resultYear !== wantedYear) score -= 100;
+        else if (resultYear) score += 5;
         return { item: r, score: score };
     });
     scored.sort(function (a, b) { return b.score - a.score; });
-    return scored[0].item;
+    return scored[0] && scored[0].score > 25 ? scored[0].item : null;
 }
 
 // Parse quality for sorting
@@ -880,7 +905,11 @@ function getStreams(tmdbId, mediaType = 'movie', seasonNum = null, episodeNum = 
             }
 
             // 3. Extract download links from best match
-            const selectedResult = findBestMatch(searchResults, tmdb.title);
+            const selectedResult = findBestMatch(searchResults, tmdb.title, tmdb.year);
+            if (!selectedResult) {
+                console.log(`[DVDPlay] No safe title/year match found`);
+                return [];
+            }
             return extractDownloadLinks(selectedResult.url).then(downloadLinks => {
                 if (downloadLinks.length === 0) {
                     console.log(`[DVDPlay] No download pages found`);

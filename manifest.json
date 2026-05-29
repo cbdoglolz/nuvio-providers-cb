@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -206,8 +206,8 @@
     {
       "id": "dvdplay",
       "name": "DVDPlay",
-      "description": "DVDPlay direct download links with HubCloud extraction",
-      "version": "1.0.2",
+      "description": "DVDPlay direct download links with HubCloud extraction and safer year matching.",
+      "version": "1.0.3-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

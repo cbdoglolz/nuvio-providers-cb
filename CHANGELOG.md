@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.17 - 2026-05-30
+
+- **DVDPlay `1.0.3-cb1`**: Added safer year-aware matching. Results with an explicit wrong year are filtered or heavily penalized instead of being selected just because the title is similar.
+- DVDPlay now returns no streams when it cannot find a safe title/year match, avoiding bad mismatches such as a requested 2023/2024 movie resolving to an unrelated 2026 item.
+
 ## 1.1.16 - 2026-05-30
 
 - **MovieBox `1.1.2-cb2`**: Adds aggregated alias search for TMDB title, original title/name, punctuation-stripped forms, no-space forms, and season-specific terms. This improves matching for anime/TV titles with inconsistent naming.
