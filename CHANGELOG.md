@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.9 - 2026-05-30
+
+- Repo bumped to `1.1.9`.
+- **AnimeKai `1.1.1-cb1`**: Spy x Family (and other MegaUp-hosted streams) returned links that would not play in Nuvio. MegaUp CDN URLs require a `Referer`/`Origin` from the embed host (`megaup.cc` / `megaup.live`), but the provider only sent a generic User-Agent. Each stream now carries the correct embed referer. MegaUp's comma-style master playlists (`/list,*.m3u8`) are passed through directly instead of being re-fetched with the wrong headers.
+- **AnimePahe `1.0.2-cb3`**: Spy x Family was found locally (MAL map + proxy search OK) but returned 0 streams because every Kwik embed fetch hit HTTP 403. Added `Cloudflare.solve()` retry on 403/503 for direct Kwik requests (same pattern as AnimeKai).
+
 ## 1.1.8 - 2026-05-30
 
 - MovieBox provider bumped to `1.1.1-cb1`.

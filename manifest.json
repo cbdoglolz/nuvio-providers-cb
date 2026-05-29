@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -26,7 +26,7 @@
       "id": "animekai",
       "name": "AnimeKai",
       "description": "AnimeKai TV episodes via AnimeKai servers",
-      "version": "1.1.0",
+      "version": "1.1.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -44,7 +44,7 @@
       "id": "animepahe",
       "name": "AnimePahe",
       "description": "AnimePahe (Sub/Dub)",
-      "version": "1.0.2-cb2",
+      "version": "1.0.2-cb3",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

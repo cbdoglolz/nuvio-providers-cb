@@ -389,10 +389,44 @@ function qualityFromResolutionOrBandwidth(stream) {
     return 'Unknown';
 }
 
-function resolveM3U8(url, serverType, serverName) {
-    return fetchRequest(url, { 
+function refererFromEmbed(embedUrl) {
+    try {
+        var u = new URL(embedUrl);
+        return u.origin + '/';
+    } catch (e) {
+        return 'https://megaup.cc/';
+    }
+}
+
+function isMegaDirectPlaylist(url) {
+    return !!(url && /\/list,[^/]+\.m3u8/i.test(url));
+}
+
+function resolveM3U8(url, serverType, serverName, streamReferer) {
+    if (isMegaDirectPlaylist(url)) {
+        return Promise.resolve({
+            success: true,
+            streams: [{
+                url: url,
+                quality: extractQualityFromUrl(url),
+                serverType: serverType,
+                serverName: serverName,
+                referer: streamReferer
+            }]
+        });
+    }
+
+    var streamHeaders = Object.assign({}, HEADERS, {
+        'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/octet-stream,*/*'
+    });
+    if (streamReferer) {
+        streamHeaders['Referer'] = streamReferer;
+        try { streamHeaders['Origin'] = new URL(streamReferer).origin; } catch (e) { }
+    }
+
+    return fetchRequest(url, {
         skipSizeCheck: true,
-        headers: Object.assign({}, HEADERS, { 'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/octet-stream,*/*' }) 
+        headers: streamHeaders
     })
         .then(function (res) { return res.text(); })
         .then(function (content) {
@@ -401,22 +435,22 @@ function resolveM3U8(url, serverType, serverName) {
                 var out = [];
                 for (var i = 0; i < variants.length; i++) {
                     var q = qualityFromResolutionOrBandwidth(variants[i]);
-                    out.push({ url: variants[i].url, quality: q, serverType: serverType, serverName: serverName });
+                    out.push({ url: variants[i].url, quality: q, serverType: serverType, serverName: serverName, referer: streamReferer });
                 }
                 var order = { '4K': 7, '2160p': 7, '1440p': 6, '1080p': 5, '720p': 4, '480p': 3, '360p': 2, '240p': 1, 'Unknown': 0 };
                 out.sort(function (a, b) { return (order[b.quality] || 0) - (order[a.quality] || 0); });
                 return { success: true, streams: out };
             }
             if (content.indexOf('#EXTINF:') !== -1) {
-                return { success: true, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName }] };
+                return { success: true, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: streamReferer }] };
             }
             throw new Error('Invalid M3U8');
         })
-        .catch(function () { return { success: false, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName }] }; });
+        .catch(function () { return { success: false, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: streamReferer }] }; });
 }
 
 function resolveMultipleM3U8(m3u8Links) {
-    var promises = m3u8Links.map(function (link) { return resolveM3U8(link.url, link.serverType, link.serverName); });
+    var promises = m3u8Links.map(function (link) { return resolveM3U8(link.url, link.serverType, link.serverName, link.referer); });
     return Promise.allSettled(promises).then(function (results) {
         var out = [];
         for (var i = 0; i < results.length; i++) {
@@ -428,15 +462,22 @@ function resolveMultipleM3U8(m3u8Links) {
     });
 }
 
-function formatToNuvioStreams(formattedData, mediaTitle) {
-    var links = [];
-    var streams = formattedData && formattedData.streams ? formattedData.streams : [];
+function buildStreamHeaders(streamReferer) {
+    var ref = streamReferer || 'https://megaup.cc/';
     var headers = {
         'User-Agent': HEADERS['User-Agent'],
         'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'identity'
+        'Accept-Encoding': 'identity',
+        'Referer': ref
     };
+    try { headers['Origin'] = new URL(ref).origin; } catch (e) { }
+    return headers;
+}
+
+function formatToNuvioStreams(formattedData, mediaTitle) {
+    var links = [];
+    var streams = formattedData && formattedData.streams ? formattedData.streams : [];
 
     var typeMap = {
         'sub': 'Hard Sub',
@@ -467,7 +508,7 @@ function formatToNuvioStreams(formattedData, mediaTitle) {
             url: s.url,
             quality: quality,
             size: 'Unknown',
-            headers: headers,
+            headers: buildStreamHeaders(s.referer),
             subtitles: [],
             provider: 'animekai'
         });
@@ -516,6 +557,7 @@ function runStreamFetch(token, rid) {
                         .then(function (decrypted) {
                             if (decrypted && decrypted.url) {
                                 var iframesrc = decrypted.url;
+                                var embedReferer = refererFromEmbed(iframesrc);
                                 logRid(rid, 'AnimeKai: Fetching intermediate iframe source', { url: iframesrc });
                                 
                                 return fetchRequest(iframesrc)
@@ -541,7 +583,8 @@ function runStreamFetch(token, rid) {
                                                         url: src.file,
                                                         quality: extractQualityFromUrl(src.file),
                                                         serverType: serverType,
-                                                        serverName: serverName
+                                                        serverName: serverName,
+                                                        referer: embedReferer
                                                     });
                                                 }
                                             }

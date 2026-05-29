@@ -1,18 +1,29 @@
 import { MAIN_URL, PROXY_URL, HEADERS } from './constants.js';
 
+async function fetchWithCfRetry(targetUrl, fetchOptions, finalUrl) {
+    const response = await fetch(targetUrl, fetchOptions);
+    if ((response.status === 403 || response.status === 503) &&
+        typeof Cloudflare !== 'undefined' && Cloudflare.solve) {
+        const solved = await Cloudflare.solve(finalUrl);
+        const retryHeaders = { ...(fetchOptions.headers || {}) };
+        if (solved.Cookie) retryHeaders.Cookie = solved.Cookie;
+        if (solved['User-Agent']) retryHeaders['User-Agent'] = solved['User-Agent'];
+        const retry = await fetch(targetUrl, { ...fetchOptions, headers: retryHeaders });
+        if (!retry.ok) throw new Error(`HTTP ${retry.status} on ${finalUrl}`);
+        return retry.text();
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status} on ${finalUrl}`);
+    return response.text();
+}
+
 export async function fetchText(url, options = {}) {
     const { useProxy = true, ...fetchOptions } = options;
     const finalUrl = url.startsWith('http') ? url : `${MAIN_URL}${url}`;
     
     // Use encodeURIComponent to ensure proper URL format
     const targetUrl = useProxy ? `${PROXY_URL}${encodeURIComponent(finalUrl)}` : finalUrl;
-    
-    const response = await fetch(targetUrl, {
-        headers: HEADERS,
-        ...fetchOptions
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status} on ${finalUrl}`);
-    return await response.text();
+    const headers = { ...HEADERS, ...(fetchOptions.headers || {}) };
+    return fetchWithCfRetry(targetUrl, { ...fetchOptions, headers }, finalUrl);
 }
 
 export async function fetchJson(url, options = {}) {

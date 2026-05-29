@@ -1,6 +1,6 @@
 /**
  * animepahe - Built from src/animepahe/
- * Generated: 2026-05-29T16:30:25.208Z
+ * Generated: 2026-05-29T17:20:11.265Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -87,17 +87,33 @@ var HEADERS = {
 };
 
 // src/animepahe/utils.js
+function fetchWithCfRetry(targetUrl, fetchOptions, finalUrl) {
+  return __async(this, null, function* () {
+    const response = yield fetch(targetUrl, fetchOptions);
+    if ((response.status === 403 || response.status === 503) && typeof Cloudflare !== "undefined" && Cloudflare.solve) {
+      const solved = yield Cloudflare.solve(finalUrl);
+      const retryHeaders = __spreadValues({}, fetchOptions.headers || {});
+      if (solved.Cookie)
+        retryHeaders.Cookie = solved.Cookie;
+      if (solved["User-Agent"])
+        retryHeaders["User-Agent"] = solved["User-Agent"];
+      const retry = yield fetch(targetUrl, __spreadProps(__spreadValues({}, fetchOptions), { headers: retryHeaders }));
+      if (!retry.ok)
+        throw new Error(`HTTP ${retry.status} on ${finalUrl}`);
+      return retry.text();
+    }
+    if (!response.ok)
+      throw new Error(`HTTP ${response.status} on ${finalUrl}`);
+    return response.text();
+  });
+}
 function fetchText(_0) {
   return __async(this, arguments, function* (url, options = {}) {
     const _a = options, { useProxy = true } = _a, fetchOptions = __objRest(_a, ["useProxy"]);
     const finalUrl = url.startsWith("http") ? url : `${MAIN_URL}${url}`;
     const targetUrl = useProxy ? `${PROXY_URL}${encodeURIComponent(finalUrl)}` : finalUrl;
-    const response = yield fetch(targetUrl, __spreadValues({
-      headers: HEADERS
-    }, fetchOptions));
-    if (!response.ok)
-      throw new Error(`HTTP ${response.status} on ${finalUrl}`);
-    return yield response.text();
+    const headers = __spreadValues(__spreadValues({}, HEADERS), fetchOptions.headers || {});
+    return fetchWithCfRetry(targetUrl, __spreadProps(__spreadValues({}, fetchOptions), { headers }), finalUrl);
   });
 }
 function fetchJson(_0) {
