@@ -93,21 +93,49 @@ function getTmdbInfo(tmdbId, mediaType) {
 function extractStreamFromPage(contentType, contentId, seasonNum, episodeNum) {
   return __async(this, null, function* () {
     let vixsrcUrl;
+    let apiUrl;
     let subtitleApiUrl;
     if (contentType === "movie") {
       vixsrcUrl = `${BASE_URL}/movie/${contentId}`;
+      apiUrl = `${BASE_URL}/api/movie/${contentId}`;
       subtitleApiUrl = `https://sub.wyzie.ru/search?id=${contentId}`;
     } else {
       vixsrcUrl = `${BASE_URL}/tv/${contentId}/${seasonNum}/${episodeNum}`;
+      apiUrl = `${BASE_URL}/api/tv/${contentId}/${seasonNum}/${episodeNum}`;
       subtitleApiUrl = `https://sub.wyzie.ru/search?id=${contentId}&season=${seasonNum}&episode=${episodeNum}`;
     }
     console.log(`[Vixsrc] Fetching: ${vixsrcUrl}`);
-    const response = yield makeRequest(vixsrcUrl, {
-      headers: {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    let html = "";
+    try {
+      const apiResponse = yield makeRequest(apiUrl, {
+        headers: {
+          "Accept": "application/json,*/*",
+          "Referer": vixsrcUrl
+        }
+      });
+      const apiData = yield apiResponse.json();
+      if (apiData && apiData.src) {
+        const embedUrl = apiData.src.startsWith("http") ? apiData.src : `${BASE_URL}${apiData.src}`;
+        console.log(`[Vixsrc] Fetching embed: ${embedUrl}`);
+        const embedResponse = yield makeRequest(embedUrl, {
+          headers: {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Referer": vixsrcUrl
+          }
+        });
+        html = yield embedResponse.text();
       }
-    });
-    const html = yield response.text();
+    } catch (apiError) {
+      console.log(`[Vixsrc] API/embed fetch failed, falling back to page HTML: ${apiError.message}`);
+    }
+    if (!html) {
+      const response = yield makeRequest(vixsrcUrl, {
+        headers: {
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+      });
+      html = yield response.text();
+    }
     console.log(`[Vixsrc] HTML length: ${html.length} characters`);
     let masterPlaylistUrl = null;
     if (html.includes("window.masterPlaylist")) {

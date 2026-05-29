@@ -279,11 +279,17 @@ function extractSourceResults($, el) {
     };
     const hubCloudLink = $(el).find("a").filter((_, a) => $(a).text().includes("HubCloud")).attr("href");
     if (hubCloudLink) {
+      if (hubCloudLink.includes("hubcloud")) {
+        return { url: hubCloudLink, meta };
+      }
       const resolved = yield resolveRedirectUrl(hubCloudLink);
-      return { url: resolved, meta };
+      return { url: resolved || hubCloudLink, meta };
     }
     const hubDriveLink = $(el).find("a").filter((_, a) => $(a).text().includes("HubDrive")).attr("href");
     if (hubDriveLink) {
+      if (hubDriveLink.includes("hubdrive")) {
+        return { url: hubDriveLink, meta };
+      }
       const resolvedDrive = yield resolveRedirectUrl(hubDriveLink);
       if (resolvedDrive) {
         const hubDriveHtml = yield fetchText(resolvedDrive);
@@ -303,37 +309,64 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
   return __async(this, null, function* () {
     if (!hubCloudUrl)
       return [];
+    if (hubCloudUrl.includes("hubdrive")) {
+      const hubDriveHtml = yield fetchText(hubCloudUrl, {
+        headers: {
+          "Referer": hubCloudUrl
+        }
+      });
+      if (!hubDriveHtml)
+        return [];
+      const $drive = cheerio2.load(hubDriveHtml);
+      const hubDriveTarget = $drive(".btn.btn-primary.btn-user.btn-success1.m-1").attr("href") || $drive('a:contains("HubCloud")').attr("href") || $drive("a.btn").filter((_, el) => {
+        const text = $drive(el).text().toLowerCase();
+        const href = ($drive(el).attr("href") || "").toLowerCase();
+        return text.includes("download") || href.includes("hubcloud") || href.includes("hubcdn") || href.includes("pixeldrain");
+      }).first().attr("href");
+      if (!hubDriveTarget)
+        return [];
+      hubCloudUrl = hubDriveTarget.startsWith("http") ? hubDriveTarget : new URL(hubDriveTarget, hubCloudUrl).toString();
+    }
     const redirectHtml = yield fetchText(hubCloudUrl, { headers: { Referer: hubCloudUrl } });
     if (!redirectHtml)
       return [];
-    const redirectUrlMatch = redirectHtml.match(/var url ?= ?'(.*?)'/);
-    if (!redirectUrlMatch)
-      return [];
-    const finalLinksUrl = redirectUrlMatch[1];
-    const linksHtml = yield fetchText(finalLinksUrl, { headers: { Referer: hubCloudUrl } });
+    let finalLinksUrl = null;
+    const $redirect = cheerio2.load(redirectHtml);
+    const downloadHref = $redirect("#download").attr("href");
+    if (downloadHref) {
+      finalLinksUrl = downloadHref.startsWith("http") ? downloadHref : new URL(downloadHref, hubCloudUrl).toString();
+    }
+    if (!finalLinksUrl) {
+      const redirectUrlMatch = redirectHtml.match(/var url ?= ?['"](.*?)['"]/);
+      if (redirectUrlMatch) {
+        finalLinksUrl = redirectUrlMatch[1];
+      }
+    }
+    const linksHtml = finalLinksUrl ? yield fetchText(finalLinksUrl, { headers: { Referer: hubCloudUrl } }) : redirectHtml;
     if (!linksHtml)
       return [];
     const $ = cheerio2.load(linksHtml);
     const results = [];
-    const sizeText = $("#size").text();
-    const titleText = $("title").text().trim();
+    const sizeText = $("#size, i#size").first().text();
+    const titleText = $("div.card-header").first().text().trim() || $("title").text().trim();
     const currentMeta = __spreadProps(__spreadValues({}, baseMeta), {
       bytes: parseBytes(sizeText) || baseMeta.bytes,
       title: titleText || baseMeta.title
     });
-    $("a").each((_, el) => {
+    $("a.btn, a").each((_, el) => {
       const text = $(el).text();
       const href = $(el).attr("href");
       if (!href)
         return;
-      if (text.includes("FSL") || text.includes("Download File")) {
+      const label = text.toLowerCase();
+      if (label.includes("fsl") || label.includes("download file") || label.includes("s3 server") || label.includes("fslv2") || label.includes("mega server") || label.includes("pdl server")) {
         results.push({
-          source: "FSL",
+          source: text.trim() || "Direct",
           url: href,
           meta: currentMeta
         });
-      } else if (text.includes("PixelServer")) {
-        const pixelUrl = href.replace("/u/", "/api/file/");
+      } else if (label.includes("pixelserver") || label.includes("pixel server") || label.includes("pixeldrain") || label.includes("pixeldra")) {
+        const pixelUrl = href.includes("?download") ? href : href.replace("/u/", "/api/file/").replace(/\/file\/([^/?#]+).*$/, "/api/file/$1?download");
         results.push({
           source: "PixelServer",
           url: pixelUrl,
