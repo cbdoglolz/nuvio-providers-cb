@@ -110,6 +110,25 @@ function getSyncInfo(id, mediaType, season, episode) {
         return fetchRequest(tmdbUrl).then(function(res) { return res.json(); });
     };
 
+    var getTmdbEpisodeInfo = function(tmdbId) {
+        if (mediaType !== 'tv' || !season || !episode) {
+            return Promise.resolve({ date: null, title: null });
+        }
+        var seasonUrl = TMDB_BASE_URL + '/tv/' + tmdbId + '/season/' + season + '?api_key=' + TMDB_API_KEY;
+        return fetchRequest(seasonUrl)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                var eps = data.episodes || [];
+                for (var i = 0; i < eps.length; i++) {
+                    if (parseInt(eps[i].episode_number, 10) === parseInt(episode, 10)) {
+                        return { date: eps[i].air_date || null, title: eps[i].name || null };
+                    }
+                }
+                return { date: null, title: null };
+            })
+            .catch(function() { return { date: null, title: null }; });
+    };
+
     if (isImdb) {
         return getCinemetaInfo(id).then(function(info) {
             if (info.date) return { imdbId: id, releaseDate: info.date, episodeTitle: info.title, dayIndex: info.dayIndex, episode: episode };
@@ -140,11 +159,16 @@ function getSyncInfo(id, mediaType, season, episode) {
             })
             .then(function(info) {
                 if (!info.imdbId) throw new Error('No IMDb ID found for TMDB ' + id);
-                return getCinemetaInfo(info.imdbId).then(function(cMeta) {
+                return Promise.all([getCinemetaInfo(info.imdbId), getTmdbEpisodeInfo(id)]).then(function(parts) {
+                    var cMeta = parts[0] || {};
+                    var tmdbEp = parts[1] || {};
                     var finalDate = cMeta.date;
                     // For movies, TMDB's release date is usually the original (correct) one
                     if (mediaType === 'movie' && info.movieDate) {
                         finalDate = info.movieDate;
+                    }
+                    if (!finalDate && tmdbEp.date) {
+                        finalDate = tmdbEp.date;
                     }
 
                     if (finalDate) return { 
@@ -152,7 +176,7 @@ function getSyncInfo(id, mediaType, season, episode) {
                         tmdbId: id, 
                         releaseDate: finalDate, 
                         title: info.title, 
-                        episodeTitle: cMeta.title,
+                        episodeTitle: cMeta.title || tmdbEp.title,
                         dayIndex: cMeta.dayIndex,
                         episode: episode
                     };
@@ -169,16 +193,28 @@ function resolveByDate(releaseDateStr, rid, showTitle, season, episodeTitle, day
 
     logRid(rid, 'ArmSync: Resolving for date ' + releaseDateStr + ' (Show: ' + showTitle + ', DayIndex: ' + dayIndex + ')');
 
-    // Step 1: Search AniList by Title to get candidates
     var query = 'query($search:String){Page(perPage:20){media(search:$search,type:ANIME){id type format title{romaji english}startDate{year month day}endDate{year month day}episodes streamingEpisodes{title}}}}';
-    
-    return fetchRequest(ANILIST_URL, {
-        method: 'POST',
-        headers: Object.assign({}, HEADERS, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ query: query, variables: { search: showTitle } })
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(json) {
+
+    function ordinal(n) {
+        n = parseInt(n, 10);
+        if (!n) return '';
+        var suffix = (n % 10 === 1 && n % 100 !== 11) ? 'st' : (n % 10 === 2 && n % 100 !== 12) ? 'nd' : (n % 10 === 3 && n % 100 !== 13) ? 'rd' : 'th';
+        return n + suffix;
+    }
+
+    function uniquePush(arr, value) {
+        if (value && arr.indexOf(value) === -1) arr.push(value);
+    }
+
+    function searchAndMatch(searchTerm) {
+        logRid(rid, 'ArmSync: AniList search term', searchTerm);
+        return fetchRequest(ANILIST_URL, {
+            method: 'POST',
+            headers: Object.assign({}, HEADERS, { 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ query: query, variables: { search: searchTerm } })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(json) {
         var candidates = (json.data && json.data.Page && json.data.Page.media) ? json.data.Page.media : [];
         if (candidates.length === 0) return null;
 
@@ -237,11 +273,27 @@ function resolveByDate(releaseDateStr, rid, showTitle, season, episodeTitle, day
             }
         }
         return null;
-    })
-    .catch(function(err) {
-        logRid(rid, 'ArmSync: AniList search error: ' + err.message);
-        return null;
+        })
+        .catch(function(err) {
+            logRid(rid, 'ArmSync: AniList search error: ' + err.message);
+            return null;
+        });
+    }
+
+    var terms = [];
+    uniquePush(terms, showTitle);
+    if (season && parseInt(season, 10) > 1) {
+        uniquePush(terms, showTitle + ' Season ' + season);
+        uniquePush(terms, showTitle + ' ' + ordinal(season) + ' Season');
+    }
+
+    var chain = Promise.resolve(null);
+    terms.forEach(function(term) {
+        chain = chain.then(function(found) {
+            return found || searchAndMatch(term);
+        });
     });
+    return chain;
 }
 
 function encryptKai(text) {
@@ -412,14 +464,7 @@ function normalizeMegaReferer(url, streamReferer) {
 }
 
 function normalizePlayableUrl(url) {
-    if (!url) return url;
-    try {
-        var u = new URL(url);
-        u.pathname = u.pathname.replace(/,/g, '%2C');
-        return u.toString();
-    } catch (e) {
-        return url.replace(/,/g, '%2C');
-    }
+    return url;
 }
 
 function resolveM3U8(url, serverType, serverName, streamReferer) {
@@ -567,20 +612,21 @@ function runStreamFetch(token, rid) {
                             if (decrypted && decrypted.url) {
                                 var iframesrc = decrypted.url;
                                 var embedReferer = refererFromEmbed(iframesrc);
-                                logRid(rid, 'AnimeKai: Fetching intermediate iframe source', { url: iframesrc });
-                                
-                                return fetchRequest(iframesrc)
-                                    .then(function (res) { return res.text(); })
-                                    .then(function (html) {
-                                        // Extract the actual iframe src from the page
-                                        var iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
-                                        var finalIframeUrl = iframeMatch ? iframeMatch[1] : iframesrc;
-                                        
-                                        // Ensure absolute URL
-                                        if (finalIframeUrl.indexOf('//') === 0) finalIframeUrl = 'https:' + finalIframeUrl;
-                                        
-                                        logRid(rid, 'mega.media → dec-mega', { lid: lid, finalUrl: finalIframeUrl });
-                                        return decryptMegaMedia(finalIframeUrl);
+                                logRid(rid, 'mega.media → dec-mega', { lid: lid, finalUrl: iframesrc });
+
+                                return decryptMegaMedia(iframesrc)
+                                    .catch(function () {
+                                        logRid(rid, 'AnimeKai: direct dec-mega failed, trying intermediate iframe', { url: iframesrc });
+                                        return fetchRequest(iframesrc)
+                                            .then(function (res) { return res.text(); })
+                                            .then(function (html) {
+                                                var iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+                                                var finalIframeUrl = iframeMatch ? iframeMatch[1] : iframesrc;
+                                                if (finalIframeUrl.indexOf('//') === 0) finalIframeUrl = 'https:' + finalIframeUrl;
+                                                embedReferer = refererFromEmbed(finalIframeUrl);
+                                                logRid(rid, 'mega.media → dec-mega fallback', { lid: lid, finalUrl: finalIframeUrl });
+                                                return decryptMegaMedia(finalIframeUrl);
+                                            });
                                     })
                                     .then(function (mediaData) {
                                         var srcs = [];

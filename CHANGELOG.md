@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.14 - 2026-05-30
+
+- **AnimeKai `1.1.3-cb4`**: Added TMDB season-episode fallback for newer seasons when Cinemeta has not caught up, aimed at titles like *Re:ZERO* Season 4.
+- AniList matching now retries season-specific terms such as `Season 4` and `4th Season` after the base title search.
+- Changed MegaUp extraction to decrypt the AnimeKai iframe directly first, closer to the Cloudstream flow; the old intermediate-iframe fetch remains only as fallback.
+- Stopped URL-encoding comma-style MegaUp HLS paths because it can break signed playlist URLs.
+
 ## 1.1.13 - 2026-05-30
 
 - **AnimeKai `1.1.3-cb3`**: Re-enabled by default because it is currently the only provider that reliably finds new seasonal anime.
