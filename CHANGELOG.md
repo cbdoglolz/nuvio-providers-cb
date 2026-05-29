@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.18 - 2026-05-30
+
+- **MovieBox `1.1.3-cb3`**: Added a TV fallback for `resourceDetectors[].resourceLink` pages when episode `downloadUrl` is empty.
+- The fallback fetches the external resource page and extracts only real `mp4` / `mkv` / `m3u8` URLs, then keeps the legacy `play-info` endpoint as a final fallback if no direct links are found.
+- This is intentionally conservative: it will return no streams instead of exposing non-video webpage links.
+
 ## 1.1.17 - 2026-05-30
 
 - **DVDPlay `1.0.3-cb1`**: Added safer year-aware matching. Results with an explicit wrong year are filtered or heavily penalized instead of being selected just because the title is similar.

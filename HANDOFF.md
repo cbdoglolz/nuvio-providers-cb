@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.17`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.18`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -49,7 +49,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 |----------|------|------|------|
 | **HDHub4u** | 1.1.2-cb1 | ✅ 已修 | 搜索 API 改为 `search.hdhub4u.glass`（原 pingora 403）。用户真机 Hail Mary OK |
 | **UHDMovies** | 1.2.2-cb4 | ✅ 已修 | Instant Download：follow redirect 取 `url=` 直链；`Project X` 短标题搜索回退。本地 Oppenheimer 13 流、Hail Mary 8 流 |
-| **MovieBox** | 1.1.2-cb2 | ✅ 电影 / ⚠️ TV | `resourceDetectors[].downloadUrl`；1.1.16 加 TMDB/original/Season aliases 聚合搜索。TV 仍可能无 `downloadUrl`，只有外部 `resourceLink` page |
+| **MovieBox** | 1.1.3-cb3 | ✅ 电影 / ⚠️ TV | `resourceDetectors[].downloadUrl`；1.1.16 加 TMDB/original/Season aliases 聚合搜索。1.1.18 对 TV 空 `downloadUrl` 尝试抓 `resourceLink` 外页里的真实 mp4/mkv/m3u8 |
 | **Vidlink** | 1.0.2-cb1 | ✅ 可用 | m3u8 多清晰度；去掉 size/quality 的 `Unknown` 显示 |
 | **StreamFlix** | 1.0.1-cb1 | ✅ 本地 OK | Oppenheimer 4 流，待真机 |
 | **MovieBlast** | 1.0.1-cb1 | ⚠️ 待验证 | 补 CDN headers、有 mkv 时跳过 m3u8；Hail Mary 本地 4 条 mkv 200 |
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.17**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.18**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -131,8 +131,9 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 ### MovieBox
 
 - 电影：`data.resourceDetectors[].downloadUrl`（206 MP4）
-- TV：`downloadUrl` 空，只有外部 `resourceLink` page
+- TV：`downloadUrl` 经常为空，只有外部 `resourceLink` page
 - 1.1.16：搜索侧已增强（TMDB title/original/no-space/punctuation/Season aliases），但 TV 播放仍取决于 API 是否给当前集 `downloadUrl`
+- 1.1.18：TV 无 `downloadUrl` 时会抓 `resourceLink` 外页，只提取真实 `mp4/mkv/m3u8`；若页面是 JS 二次跳转或需交互，仍可能 0 流
 
 ### VidnestAnime
 
@@ -165,7 +166,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 1. **等用户反馈** 1.1.16：AnimeKai / AnimePahe 新番、尤其 *Re:ZERO* S4 是否能搜到并播放；若 AnimeKai 仍不能播，考虑 m3u8 proxy
 2. **等用户反馈**：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
 3. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
-4. **MovieBox TV**：若仍 0 流，下一步 scraping `resourceLink` 外站（工作量大）
+4. **MovieBox TV**：若仍 0 流，需要针对具体 `resourceLink` 域名写站点 extractor
 5. **VidnestAnime**：只有在愿意重写 embed/API 提取时再启用
 6. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
 7. **Dooflix**：等用户提供新 API key

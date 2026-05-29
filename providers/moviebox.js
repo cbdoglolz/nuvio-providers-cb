@@ -381,6 +381,64 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
         return out;
     }
 
+    function decodeMaybeUrl(value) {
+        let v = String(value || '').replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+        try { v = decodeURIComponent(v); } catch (e) { }
+        return v;
+    }
+
+    function extractVideoUrlsFromHtml(html, pageUrl) {
+        const out = [];
+        const seen = {};
+        const decoded = decodeMaybeUrl(html || '');
+        const patterns = [
+            /https?:\/\/[^"'<>\\\s]+?\.(?:mp4|mkv|m3u8)(?:\?[^"'<>\\\s]*)?/ig,
+            /(?:href|src|data-src|data-url)=["']([^"']+\.(?:mp4|mkv|m3u8)(?:\?[^"']*)?)["']/ig,
+            /(?:file|url|source)\s*[:=]\s*["']([^"']+\.(?:mp4|mkv|m3u8)(?:\?[^"']*)?)["']/ig
+        ];
+        patterns.forEach(re => {
+            let m;
+            while ((m = re.exec(decoded)) !== null) {
+                let u = decodeMaybeUrl(m[1] || m[0]);
+                try { u = new URL(u, pageUrl).toString(); } catch (e) { }
+                if (!/^https?:\/\//i.test(u) || seen[u]) continue;
+                seen[u] = true;
+                out.push(u);
+            }
+        });
+        return out;
+    }
+
+    function streamsFromResourceLinks(data, lang) {
+        const rds = data && data.resourceDetectors ? data.resourceDetectors : [];
+        const tasks = [];
+        const seenPages = {};
+        rds.forEach(rd => {
+            const page = rd.resourceLink;
+            if (!page || rd.downloadUrl || seenPages[page]) return;
+            seenPages[page] = true;
+            tasks.push(fetch(page, {
+                headers: {
+                    "User-Agent": HEADERS['User-Agent'],
+                    "Referer": API_BASE
+                }
+            })
+                .then(res => res.ok ? res.text() : '')
+                .then(html => extractVideoUrlsFromHtml(html, page).map(url => ({
+                    name: `MovieBox (${lang}) ${deriveQuality(Object.assign({}, rd, { downloadUrl: url }))} [${getFormatType(url)}]`,
+                    title: formatTitle(mediaTitle, season, episode, mediaType),
+                    url,
+                    quality: deriveQuality(Object.assign({}, rd, { downloadUrl: url })),
+                    headers: {
+                        "Referer": page,
+                        "User-Agent": HEADERS['User-Agent']
+                    }
+                })))
+                .catch(() => []));
+        });
+        return Promise.all(tasks).then(chunks => chunks.reduce((a, b) => a.concat(b), []));
+    }
+
     return request('GET', subjectUrl).then(subjectRes => {
         if (!subjectRes || !subjectRes.data) return [];
         const mainData = subjectRes.data;
@@ -408,6 +466,43 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
             );
             return Promise.all(dubPromises).then(dubStreams => {
                 let flat = collected.concat(dubStreams).reduce((a, b) => a.concat(b), []);
+
+                if (flat.length === 0 && isTv) {
+                    const resourceTasks = [streamsFromResourceLinks(mainEpData || mainData, 'Original')].concat(
+                        cappedVariants.map(v => getSubjectData(v.id).then(d => streamsFromResourceLinks(d, v.lang)))
+                    );
+                    return Promise.all(resourceTasks).then(resourceStreams => {
+                        flat = resourceStreams.reduce((a, b) => a.concat(b), []);
+                        if (flat.length > 0) return flat;
+                        const playUrl = `${API_BASE}/wefeed-mobile-bff/subject-api/play-info?subjectId=${subjectId}&se=${season}&ep=${episode}`;
+                        return request('GET', playUrl).then(playRes => {
+                            const streams = [];
+                            if (playRes && playRes.data && playRes.data.streams) {
+                                playRes.data.streams.forEach(stream => {
+                                    if (!stream.url) return;
+                                    const qualityField = stream.resolutions || stream.quality || 'Auto';
+                                    let candidates = Array.isArray(qualityField) ? qualityField
+                                        : (typeof qualityField === 'string' && qualityField.includes(',')) ? qualityField.split(',').map(s => s.trim()).filter(Boolean)
+                                        : [qualityField];
+                                    const maxQ = candidates.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
+                                    const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
+                                    streams.push({
+                                        name: `MovieBox (Original) ${quality} [${getFormatType(stream.url)}]`,
+                                        title: formatTitle(mediaTitle, season, episode, mediaType),
+                                        url: stream.url,
+                                        quality,
+                                        headers: {
+                                            "Referer": API_BASE,
+                                            "User-Agent": HEADERS['User-Agent'],
+                                            ...(stream.signCookie ? { "Cookie": stream.signCookie } : {})
+                                        }
+                                    });
+                                });
+                            }
+                            return streams;
+                        });
+                    });
+                }
 
                 // Fallback: if nothing resolved, try the legacy play-info endpoint.
                 if (flat.length === 0) {
