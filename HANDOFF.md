@@ -1,126 +1,185 @@
-# 交接说明 (HANDOFF)
+# 交接说明 (HANDOFF) — 给 Codex
 
-> 这份文档用于在 Codex / Cursor 之间来回交接，保证换人后能立刻接着做。
-> **每次有进展都更新本文件**（尤其是「当前进度」「下一步」「待真机验证」三节）。
-
-## 项目概况
-
-- 这是 `nuvio-providers` 的 fork，本地路径：`C:\Users\cbdog\Documents\New project\nuvio-providers-cb`
-- 远端：`origin` = `https://github.com/cbdoglolz/nuvio-providers-cb.git`（你的 fork）；`upstream` = `https://github.com/yoruix/nuvio-providers.git`
-- 目标：修复 / 增强 Nuvio 各 provider，**重点参考 Cloudstream 插件** `https://github.com/phisher98/cloudstream-extensions-phisher`
-- Nuvio app 通过 GitHub raw 拉取插件，**改动必须 push 到 fork 后才能在真机测试**
-
-## 关键约定（每次更新都要做）
-
-1. 升 `manifest.json` 顶层 `version`
-2. 升对应 provider 的 `version`（fork 改动用 `-cbN` 后缀，例如 `1.0.6-cb4`）
-3. 在 `CHANGELOG.md` 顶部追加本次改动条目
-4. 提交信息用简短英文祈使句（对齐仓库历史风格，如 `Port Cloudstream 4KHDHub extraction flow`）
-
-## 构建方式（重要，容易踩坑）
-
-- `4khdhub.js`、`uhdmovies.js`、`vixsrc.js` 等**没有 `src/` 源目录，直接改 `providers/` 里的单文件**（虽然文件头写着 "Built from src/"，但 src 不存在）。保持已转译的 `__async`/`yield` 写法以兼容 Hermes。
-- `hdhub4u`、`dooflix`、`animepahe`、`cinemacity`、`mycima`、`allmovieland`、`movieblast`、`netmirror` 有 `src/<name>/` 源目录，改完要 `node build.js <name>` 重新生成 `providers/<name>.js`。
-- 本地校验（无网络也能跑）：
-  - `node --check providers/<name>.js`
-  - `node -e "require('./providers/<name>.js')"`
-- 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
-
-## 当前进度（截至 2026-05-30，repo 版本 1.1.10）
-
-> 重要工具发现：**本环境 node fetch 可以联网**（shell 加 full_network 权限即可），所以能在本地真实跑 `getStreams` / 探活 API（curl 会卡，但 node fetch 正常）。调试方法：临时给 provider 加 `module.exports.__debug = {...}` 导出内部函数，跑完删掉。
-
-### 多 provider 修复批次
-
-- [—] **animepahe / animekai**：用户真机仍失败，**已跳过**（Kwik 403 / MegaUp 播放问题短期难稳）。
-- [x] **hdhub4u `1.1.2-cb1`**：搜索 API 从 `search.pingora.fyi`（403）改为 `search.hdhub4u.glass`。Oppenheimer 本地 9 条流。
-- [x] **uhdmovies `1.2.2-cb3`**：Instant Download 改跟 Cloudstream 一样 follow redirect 再取 `url=` 直链。Oppenheimer 本地 0→13 条流。
-- [x] **moviebox `1.1.1-cb1`**：电影 OK；TV/中文仍弱。
-- [x] **vidlink**：已可用，无需改。
-- [—] **vidnest-anime / dooflix**：上游/API key 挂了，跳过。
-- [?] **vixsrc / moviesmod**：Cloudflare 拦数据中心 IP，需真机测。
-- [?] **streamflix / yflix**：本地有流（Oppenheimer 4 / 1），待真机确认播放。
-
-### 本地测试能力边界（重要）
-- **node fetch 能联网**，可本地跑 getStreams 验证**非 Cloudflare** 的 API 型 provider（已用于 animepahe/moviebox/dooflix/vidnest 诊断）。
-- **Cloudflare WAF 站点（vixsrc/moviesmod/animekai/4khdhub的hubcloud等）会拦数据中心 IP（403/challenge）**，本地测不了，但用户真机通常能过。这类 provider 不要因本地 403 就判定坏、更不要盲改。
-
-排查工具备忘：动画后端探活可用 WebFetch 打这些（已确认活）：
-- 搜索: `https://animepaheproxy.phisheranimepahe.workers.dev/?url=https://animepahe.pw/api?m=search&l=8&q=<名>`（注意 & 要按需转义）
-- 映射: `https://id-mapping-api-malid.hf.space/api/resolve?id=<imdb>&s=<S>&e=<E>`
+> 最后更新：**2026-05-30**，repo **`1.1.11`**，分支 **`main`**  
+> 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
 
-## 历史进度（4KHDHub 等，repo ≤ 1.1.6）
+## 1. 项目目标与用户偏好
 
-已完成的 fork 改动（见 CHANGELOG）：
+- Fork `nuvio-providers`，参考 Cloudstream phisher：`https://github.com/phisher98/cloudstream-extensions-phisher`
+- 用户优先：**动画**、**中文内容**；但动画专用源（AnimePahe/AnimeKai）真机仍失败，已**暂停**
+- 电影侧：**HDHub4u / UHDMovies / Vidlink** 是当前最靠谱组合
+- 用户真机反馈（Project Hail Mary / TMDB `687163`）：
+  - ✅ **HDHub4u** 能用
+  - ❓ **UHDMovies** 曾报搜不到 → `1.2.2-cb4` 已加 `Project …` → 短标题回退；本地能出 8 条流，待用户再测
+  - ❌ **MovieBlast** 有源不能播 → `1.0.1-cb1` 已修 headers + 去掉 m3u8 只留 mkv，待用户再测
+  - ✅ **Vidlink** 能播；`Unknown` 标签 → `1.0.2-cb1` 已去掉
+  - ❌ **NetMirror** 限流（10 分钟「访问过多」），**代码无解**，建议默认关闭或降优先级
 
-1. repo 名改为 `cbrepo`，manifest 顶层版本到 `1.1.4`
-2. **4KHDHub `1.0.8-cb6`** — 移植 Cloudstream FourKHDHub 解析（HubDrive/HubCloud/HubCDN/Hblinks/Pixeldrain/BuzzServer）+ HubDrive 直链。**seek 问题仍未完全解决**（见下方「技术要点」与「seek 现状」）。
-3. UHDMovies `1.2.2-cb2` — 标题搜索 fallback + 参照 Cloudstream 重写 TV 集解析
-4. AnimePahe `1.0.1-cb1` — 日漫 TV 集 fallback
-5. 首批版本号 bump：Vixsrc / Vidlink / StreamFlix / DooFlix / HDHub4u 等
+---
 
-## 技术要点：4KHDHub seek 修复
+## 2. 关键约定（每次改 provider 必做）
 
-### cb5（真正的修复，2026-05-29）—— 走 HubDrive 直链，绕开 Cloudflare
+1. 升 `manifest.json` 顶层 `version`
+2. 升对应 provider 的 `version`（fork 用 `-cbN` 后缀）
+3. `CHANGELOG.md` 顶部追加条目
+4. **push 到 origin/main** — Nuvio 从 GitHub raw 拉 manifest，不 push 用户看不到
+5. 用户刷新 cbrepo：若一直旧版本，**删掉插件重新添加**（缓存 manifest）
 
-用浏览器对真实片源（鬼灭之刃 无限城 / Demon Slayer Infinity Castle）实测得出：
+### 构建方式
 
-- **HubCloud 域名 `hubcloud.foo` 挂在 Cloudflare Turnstile 后面**，Nuvio 的普通 `fetch` 过不去 → 旧的 HubDrive→HubCloud 路由拿到的是非可 seek 链接，所以 cb4 没解决问题。
-- **HubDrive 有一条纯 fetch 可用、且终点可 seek 的路径**：
-  1. HubDrive 链接形如 `https://hubdrive.space/file/<id>`；`<id>` 从路径取（或页面 `<div id="down-id">` 取）。
-  2. `POST https://hubdrive.space/ajax.php?ajax=direct-download`，header 含 `Content-Type: application/x-www-form-urlencoded` + `X-Requested-With: XMLHttpRequest` + `Referer`=file 页，body `id=<id>`。
-  3. 返回 JSON：`data.gd` = `https://pub-xxxx.r2.dev/<hash>`（Cloudflare R2 直链 `.mkv`，**支持 Range、可 seek**，实测 HTML5 video `canSeek=true`）；`data.n`=文件名、`data.s`=字节数。
-  4. 已确认：无需 cookie/token，连续请求 `gd` 稳定。
-- 实现见 `providers/4khdhub.js` 的 `extractHubDrive()`；`extractResolvedLink` 里 HubDrive 优先走它，失败才回退 HubCloud。
+| 类型 | 改哪里 | 构建 |
+|------|--------|------|
+| 单文件 | `providers/4khdhub.js`, `uhdmovies.js`, `vixsrc.js`, `animekai.js`, `vidlink.js` 等 | 直接改，保持 `__async`/`yield`（Hermes） |
+| 多文件 | `src/animepahe/`, `src/hdhub4u/`, `src/movieblast/` 等 | 改 `src/` 后 `node build.js <name>` |
 
-### cb4（保留，作为 HubCloud 那条路的兜底）
+本地自检：
+```bash
+node --check providers/<name>.js
+node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(r=>console.log(r.length))"
+```
+加 `full_network` 权限；**不要用浏览器播大文件测 seek**，用 `Range: bytes=0-100` 看 206/headers。
 
-`resolveFinalLink(rawUrl, depth)`：把 HubCloud 按钮的中间跳转端点解析成最终直链——
-- `gamerxyt.com/360news4u.net 的 dl.php?link=` → `decodeURIComponent` 取内嵌 URL
-- pixeldrain `/u/<id>` → `api/file/<id>?download`
-- `*.workers.dev/?id=` / `*.fans/?id=` → `redirect:"manual"` 跟随 302（≤5 跳）
-- `googleusercontent` / `r2.cloudflarestorage.com` / `r2.dev` → 原样
-- BuzzServer / HUBCDN 不动
+---
 
-`getSeekScore`：R2/googleusercontent=100、Pixeldrain=95、未解析中间端点=15（垫底标 `No Seek?`）。
+## 3. Provider 状态总表（截至 1.1.11）
 
-## seek 现状（重要，cb6 更新）
+| Provider | 版本 | 状态 | 说明 |
+|----------|------|------|------|
+| **HDHub4u** | 1.1.2-cb1 | ✅ 已修 | 搜索 API 改为 `search.hdhub4u.glass`（原 pingora 403）。用户真机 Hail Mary OK |
+| **UHDMovies** | 1.2.2-cb4 | ✅ 已修 | Instant Download：follow redirect 取 `url=` 直链；`Project X` 短标题搜索回退。本地 Oppenheimer 13 流、Hail Mary 8 流 |
+| **MovieBox** | 1.1.1-cb1 | ✅ 电影 | `resourceDetectors[].downloadUrl`；TV 无 downloadUrl；几乎无中文音轨 |
+| **Vidlink** | 1.0.2-cb1 | ✅ 可用 | m3u8 多清晰度；去掉 size/quality 的 `Unknown` 显示 |
+| **StreamFlix** | 1.0.1-cb1 | ✅ 本地 OK | Oppenheimer 4 流，待真机 |
+| **MovieBlast** | 1.0.1-cb1 | ⚠️ 待验证 | 补 CDN headers、有 mkv 时跳过 m3u8；Hail Mary 本地 4 条 mkv 200 |
+| **YFlix** | 1.1.2 | ⚠️ 待验证 | 本地有流，enc-dec 路线 |
+| **4KHDHub** | 1.0.8-cb6 | ⚠️ seek 未解 | HubDrive→R2 直链已做；用户放弃继续追 seek；按清晰度排序 |
+| **AnimePahe** | 1.0.2-cb3 | ❌ 跳过 | 搜索/MAL 映射 OK；Kwik 403，加了 CF.solve 仍真机失败 |
+| **AnimeKai** | 1.1.1-cb1 | ❌ 跳过 | **能搜到新番、有源、全不能播** — MegaUp HLS + Referer 每分片 + URL 含逗号；Nuvio 播放器栈不适配（见 §6） |
+| **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
+| **Dooflix** | 1.0.1-cb1 | ❌ 阻塞 | API key 轮换 401，需用户从 App 提供新 key |
+| **VidnestAnime** | 1.0.0 | ❌ 上游挂 | backend DNS 没了 / first 530 |
+| **NetMirror** | 1.0.2 | ❌ 不建议 | 源站限流，10 分钟占位视频 |
+| **DVDPlay** | 1.0.2 | ⚠️ 匹配差 | 印度站；Oppenheimer 搜到错片（Kara 2026），需加 year 评分 |
+| **Cinemacity** | 1.0.0 | ❌ 本地 0 流 | 未修 |
 
-真机测试结论，**和最初假设不同**：
+### 已评估、未 port 的来源
 
-- ✅ 缓存机制没问题：升 provider version + repo version 后，Nuvio 能正确重新拉到新代码（真机已看到 `HubDrive` 源出现，说明 cb5 已生效）。
-- ❌ seek 仍未解决，但**不是「Nuvio 拖不动 MKV」**：真机上「KPop Demon Hunters」里一个 **DownloadFile** 源**可以正常快进**，证明 Nuvio 能 seek，**能不能 seek 取决于具体源/主机，且无法从 URL 预测**。
-- 「鬼灭之刃 无限城」上出现的 FSL + HubDrive(r2.dev) 两个源都不能 seek，拖动回片头、还会闪 1 秒；但同一逻辑下别的片的 DownloadFile 能 seek。
-- 之前 cb4/cb5 加的 `Seek OK/No Seek?` 标签被证明不准（DownloadFile 被错标 No Seek 却能拖），cb6 已移除，改为按清晰度排序、清楚标主机名，让用户自己试。
-- 旁证：Cloudstream 播这些源时开头要「点一下跳过」且能拖，说明它的播放器/流程对 MKV seek 处理更完整。
+- **Consumet** 公网 API 已关；Gogo/HiAnime 封装也坏 → 不做
+- **GogoAnime / HiAnime** 需从零 scraper + CF → 性价比低
+- **KissKH** 需 kkey + 私有 BuildConfig → 不可 port
+- **中文专用源**：repo 内仍无可靠 C 剧/国漫 provider
 
-**下一步排查方向（给接手者）**：
-- 需要真机抓到「鬼灭之刃」各源**实际播放的最终 URL**（看 Nuvio 日志），确认 r2.dev/FSL 到底解析成了什么、Content-Type、是否 200 vs 206。
-- 对比「能 seek 的 DownloadFile 源」最终 URL 主机 vs「不能 seek 的源」，找出可 seek 主机的规律（疑似 googleusercontent/Google Drive 可 seek、某些 r2.dev 在 Nuvio 里不行）。
-- 研究 Cloudstream 播放器为何能 seek（是否播放前读取 MKV 末尾 Cues / 用了特定 ExoPlayer flag），看 Nuvio 端是否有对应设置。
-- ⚠️ 不要再用浏览器在后台自动播放整部 3GB 视频做 seek 测试（之前误开 pixelsee.app 播放器标签页，吵且重复下载）。要测 Range 用 `fetch(url,{headers:{Range:'bytes=0-100'}})` 看 status/headers 即可，别真播。
+---
 
-## 待真机验证（下一步第一件事）
+## 4. 本会话完成的主要 commit（从新到旧）
 
-- [ ] 在 Nuvio 里把 cbrepo 刷新到 `1.1.5`，播放 4KHDHub 的「鬼灭之刃 无限城」等片源，**测试快进是否还跳回开头**（预期：HubDrive 那条 R2 直链可正常 seek）
-- [ ] 如果 Nuvio 里看到的源名是 `4KHDHub - HubDrive ...`、URL 是 `*.r2.dev/...` 就对了
-- [ ] 若仍不行：抓 Nuvio 日志看实际播放的 URL；如果不是 r2.dev，说明详情页那条 HubDrive 链接没被正确识别/解析，需要看详情页 HTML 里 HubDrive 按钮的真实 href
-- [ ] 注意 r2.dev 的 `gd` 可能有时效（响应里有 `t` 时间戳）；getStreams 每次重新生成，正常播放无碍，但若「加入列表后过很久再播」失效属预期
+```
+186ca4a Bump Vidlink to 1.0.2-cb1 in manifest
+61918c8 Fix MovieBlast playback, UHDMovies title search, Vidlink labels  → 1.1.11
+1efc308 Fix HDHub4u search API and UHDMovies instant links              → 1.1.10
+6028d4e Fix AnimeKai MegaUp playback and AnimePahe Kwik CF bypass       → 1.1.9
+e042860 Fix MovieBox movies via resourceDetectors download URLs         → 1.1.8
+b504970 Improve AnimePahe title matching                                → 1.1.7
+c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
+```
 
-## 下一步优先级（4KHDHub 通过后）
+---
 
-- 继续修 UHDMovies / HDHub4u / StreamFlix / DooFlix（都对照 Cloudstream phisher 对应 provider）
-- HDHub4u 走 `src/hdhub4u/`，改完记得 `node build.js hdhub4u`
-- 已知历史问题：早期批次 The Boys S1E1 播放不了（尚未确认修复）
+## 5. 真机测试清单（Codex 接手后优先问用户）
 
-## Cloudstream 参考路径（phisher98 repo, master 分支）
+- [ ] cbrepo 版本是否 **1.1.11**（删插件重加）
+- [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
+- [ ] **Vidlink** 分辨率旁是否还有 Unknown
+- [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
+- [ ] 动画：用户已放弃 AnimePahe/AnimeKai，除非 Nuvio 播放器或代理方案有变
 
-- 4KHDHub：`FourKHDHub/src/main/kotlin/com/fourKHDHub/{Extractor,Utils,FourKHDHubProvider}.kt`
-- HDHub4u：`HDhub4u/src/main/kotlin/com/hdhub4u/{Extractors,HDhub4uProvider,Utils}.kt`
-- 其它站点：仓库根下各有同名插件目录 + `Extractor.kt`
+---
 
-## 杂项
+## 6. 技术备忘
 
-- `.npm-cache/` 是未提交的本地缓存，忽略即可（不要提交）。
+### AnimeKai 不能播的根因（勿再盲目加 Referer）
+
+1. 流来自 **MegaUp CDN**（`rrr.megaup.cc` 等），非 AnimeKai 直链
+2. **每个 HLS 分片**都要 `Referer: https://megaup.cc/`；Nuvio 可能只对 manifest 带 headers
+3. m3u8 路径含 **逗号**：`.../list,xxx.m3u8`，ExoPlayer 易解析失败
+4. 链接 **短时效** token
+5. 可选方向：m3u8 代理（类似 Vidnest proxy）、或 manifest 里 **默认 disabled** AnimeKai
+
+### AnimePahe
+
+- Proxy 搜索正常：`animepaheproxy.phisheranimepahe.workers.dev`
+- MAL 映射：`id-mapping-api-malid.hf.space`
+- 瓶颈：**Kwik.cx** 提取（403/CF）；`src/animepahe/utils.js` 已有 `Cloudflare.solve` 重试
+
+### UHDMovies Instant Download（phisher 对齐）
+
+- `GET cdn.video-gen.xyz/...` → redirect → `video-seed.pro/?url=<googleusercontent>`
+- 从 **最终 response.url** 取 `url=` 参数，不要 POST 到 video-gen `/api`
+- 代码：`providers/uhdmovies.js` → `extractInstantLink()`
+
+### HDHub4u 搜索
+
+- 用 **`https://search.hdhub4u.glass/collections/post/documents/search`**
+- 不要用 `search.pingora.fyi`（403）
+- 代码：`src/hdhub4u/index.js` → rebuild `node build.js hdhub4u`
+
+### MovieBox
+
+- 电影：`data.resourceDetectors[].downloadUrl`（206 MP4）
+- TV：`downloadUrl` 空，只有外部 `resourceLink` page
+
+### Nuvio 缓存
+
+- 缓存 key：**provider id + version + filename**
+- manifest 顶层 version + provider version 必须一起 bump
+
+### 本地测试边界
+
+- node fetch + full_network：可测非 CF 站点
+- CF WAF（vixsrc/moviesmod/animekai.to）：数据中心 403，真机可能正常
+
+---
+
+## 7. 4KHDHub seek（历史，低优先级）
+
+- HubDrive `POST hubdrive.space/ajax.php?ajax=direct-download` → R2 `.r2.dev` 直链（浏览器可 seek）
+- 用户真机：部分片源仍不能 seek；**不能从 URL 预测**；已去掉误导性 Seek 标签
+- **不要**后台浏览器播整片测 seek
+
+---
+
+## 8. Codex 建议下一步（按优先级）
+
+1. **等用户反馈** 1.1.11：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
+2. **NetMirror**：manifest `enabled: false` 或 description 警告（用户已嫌垃圾）
+3. **AnimeKai**：manifest `enabled: false` + 说明 MegaUp 不兼容 Nuvio（用户同意可关）
+4. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
+5. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
+6. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
+7. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
+8. **Dooflix**：等用户提供新 API key
+9. **4KHDHub seek**：用户已放弃，除非主动回来
+
+---
+
+## 9. Cloudstream 参考路径
+
+- 4KHDHub：`FourKHDHub/src/main/kotlin/com/fourKHDHub/`
+- HDHub4u：`HDhub4u/src/main/kotlin/com/hdhub4u/HDhub4uProvider.kt`（搜索 glass 域名）
+- UHDMovies：`UHDmoviesProvider/.../Extractors.kt` → `Driveseed.instantLink()` = GET + follow redirect
+- MovieBlast：`MovieBlast/.../MovieBlast.kt` → loadLinks headers
+
+---
+
+## 10. 杂项
+
+- `.npm-cache/` 勿提交
+- README Quick Start 仍指向上游 tapframe URL，**应改为用户 fork**（未改，可顺手修）
+- Canvas 计划：`canvases/providers-fix-plan.canvas.tsx`（若存在）
+- 不要用 Consumet 公网 API；不要 port HiAnime/Gogo 除非动画源全灭
+
+---
+
+*本文件由 Cursor 会话写入，供 Codex 接续。有新进展请更新 §3、§5、§8 并 bump CHANGELOG。*
