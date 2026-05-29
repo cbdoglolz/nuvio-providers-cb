@@ -74,26 +74,35 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
         }
 
         // 4. Extract Streams
-        const streams = targetVideos.map(vid => {
+        const rawStreams = targetVideos.map(vid => {
             const rawUrl = vid.link;
             if (!rawUrl) return null;
-            
+
             const httpsUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+            if (!/\.(mkv|mp4|m3u8)(\?|$)/i.test(httpsUrl)) {
+                console.log(`[MovieBlast] Skipping invalid link: ${httpsUrl.slice(-60)}`);
+                return null;
+            }
+
             const signedUrl = generateSignedUrl(httpsUrl);
-            
+            const quality = matchQuality(vid.server);
+
             return {
-                name: "MovieBlast",
-                title: `MovieBlast - ${vid.server} (${vid.lang || "EN"})`,
+                name: `MovieBlast - ${quality}`,
+                title: `MovieBlast ${vid.server} (${vid.lang || "EN"})`,
                 url: signedUrl,
-                quality: matchQuality(vid.server),
-                headers: {
-                    "User-Agent": "MovieBlast",
-                    "Referer": "MovieBlast",
-                    "x-request-x": "com.movieblast"
-                },
-                provider: "movieblast"
+                quality,
+                headers: { ...HEADERS },
+                provider: "movieblast",
+                isM3u8: /\.m3u8(\?|$)/i.test(httpsUrl)
             };
         }).filter(s => s !== null);
+
+        // Prefer direct MKV/MP4 over master m3u8 when both exist (m3u8 often fails in Nuvio).
+        const hasDirect = rawStreams.some(s => !s.isM3u8);
+        const streams = rawStreams
+            .filter(s => !(hasDirect && s.isM3u8))
+            .map(({ isM3u8, ...rest }) => rest);
 
         console.log(`[MovieBlast] Successfully found ${streams.length} streams.`);
         return streams;

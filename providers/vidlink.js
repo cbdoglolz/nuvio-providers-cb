@@ -179,7 +179,7 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
           title: mediaInfo.title,
           url: playlistUrl,
           quality: "Auto",
-          size: "Unknown",
+          size: "",
           headers: VIDLINK_HEADERS,
           provider: "vidlink"
         }];
@@ -192,7 +192,7 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
           title: mediaInfo.title,
           url: stream.url,
           quality,
-          size: "Unknown",
+          size: "",
           headers: VIDLINK_HEADERS,
           provider: "vidlink"
         };
@@ -204,7 +204,7 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
         title: mediaInfo.title,
         url: playlistUrl,
         quality: "Auto",
-        size: "Unknown",
+        size: "",
         headers: VIDLINK_HEADERS,
         provider: "vidlink"
       }];
@@ -215,7 +215,7 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
 // src/vidlink/processor.js
 function extractQuality(streamData) {
   if (!streamData)
-    return "Unknown";
+    return "Auto";
   const qualityFields = ["quality", "resolution", "label", "name"];
   for (const field of qualityFields) {
     if (streamData[field]) {
@@ -253,7 +253,7 @@ function extractQuality(streamData) {
       }
     }
   }
-  return "Unknown";
+  return "Auto";
 }
 function createStreamTitle(mediaInfo) {
   if (mediaInfo.mediaType === "tv" && mediaInfo.season && mediaInfo.episode) {
@@ -276,7 +276,7 @@ function processVidlinkResponse(data, mediaInfo) {
             title: streamTitle,
             url: qualityData.url,
             quality,
-            size: "Unknown",
+            size: "",
             headers: VIDLINK_HEADERS,
             provider: "vidlink"
           });
@@ -303,7 +303,7 @@ function processVidlinkResponse(data, mediaInfo) {
         title: streamTitle,
         url: data.url,
         quality,
-        size: "Unknown",
+        size: "",
         headers: VIDLINK_HEADERS,
         provider: "vidlink"
       });
@@ -316,7 +316,7 @@ function processVidlinkResponse(data, mediaInfo) {
             title: streamTitle,
             url: stream.url,
             quality,
-            size: stream.size || "Unknown",
+            size: stream.size || "",
             headers: VIDLINK_HEADERS,
             provider: "vidlink"
           });
@@ -331,7 +331,7 @@ function processVidlinkResponse(data, mediaInfo) {
             title: streamTitle,
             url: link.url,
             quality,
-            size: link.size || "Unknown",
+            size: link.size || "",
             headers: VIDLINK_HEADERS,
             provider: "vidlink"
           });
@@ -350,7 +350,7 @@ function processVidlinkResponse(data, mediaInfo) {
               title: streamTitle,
               url: value,
               quality,
-              size: "Unknown",
+              size: "",
               headers: VIDLINK_HEADERS,
               provider: "vidlink"
             });

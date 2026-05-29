@@ -112,9 +112,23 @@ function searchByTitle(title, year) {
     var titleWithYear = (title + " " + (year || "")).trim();
     return runSearch(titleWithYear)
       .then(function(results) {
-        if (results.length > 0 || !year) return results;
+        if (results.length > 0) return results;
+        if (!year) return results;
         console.log("[UHDMovies] Retrying search without year");
         return runSearch(title);
+      })
+      .then(function(results) {
+        if (results.length > 0) return results;
+        // TMDB often prefixes "Project …" while the site lists the short title.
+        var shortTitle = title.replace(/^project\s+/i, "").trim();
+        if (shortTitle && shortTitle.toLowerCase() !== title.toLowerCase()) {
+          console.log("[UHDMovies] Retrying search with short title: " + shortTitle);
+          return runSearch(shortTitle + " " + (year || "")).then(function(r2) {
+            if (r2.length > 0) return r2;
+            return runSearch(shortTitle);
+          });
+        }
+        return results;
       })
       .catch(function (error) {
         console.error("[UHDMovies] Search failed:", error.message);

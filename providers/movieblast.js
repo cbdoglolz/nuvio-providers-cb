@@ -1,6 +1,6 @@
 /**
  * movieblast - Built from src/movieblast/
- * Generated: 2026-03-30T05:44:57.393Z
+ * Generated: 2026-05-29T17:49:35.713Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -25,6 +25,18 @@ var __spreadValues = (a, b) => {
   return a;
 };
 var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var __objRest = (source, exclude) => {
+  var target = {};
+  for (var prop in source)
+    if (__hasOwnProp.call(source, prop) && exclude.indexOf(prop) < 0)
+      target[prop] = source[prop];
+  if (source != null && __getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(source)) {
+      if (exclude.indexOf(prop) < 0 && __propIsEnum.call(source, prop))
+        target[prop] = source[prop];
+    }
+  return target;
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -68,7 +80,12 @@ var TOKEN = "jdvhhjv255vghhghdhvfch2565656jhdcghfdf";
 var APP_ID = "com.movieblast";
 var HEADERS = {
   "user-agent": "okhttp/5.0.0-alpha.6",
-  "x-request-x": APP_ID
+  "x-request-x": APP_ID,
+  "Accept-Encoding": "identity",
+  "Connection": "Keep-Alive",
+  "Icy-MetaData": "1",
+  "Referer": "MovieBlast",
+  "User-Agent": "MovieBlast"
 };
 var SEARCH_HEADERS = __spreadProps(__spreadValues({}, HEADERS), {
   "hash256": "86dc03244adddb3cbedbf0ae36074a736ee293a64774b18e82a6244eafd0df30",
@@ -222,25 +239,32 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
         console.log("[MovieBlast] No video links found in details.");
         return [];
       }
-      const streams = targetVideos.map((vid) => {
+      const rawStreams = targetVideos.map((vid) => {
         const rawUrl = vid.link;
         if (!rawUrl)
           return null;
         const httpsUrl = rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+        if (!/\.(mkv|mp4|m3u8)(\?|$)/i.test(httpsUrl)) {
+          console.log(`[MovieBlast] Skipping invalid link: ${httpsUrl.slice(-60)}`);
+          return null;
+        }
         const signedUrl = generateSignedUrl(httpsUrl);
+        const quality = matchQuality(vid.server);
         return {
-          name: "MovieBlast",
-          title: `MovieBlast - ${vid.server} (${vid.lang || "EN"})`,
+          name: `MovieBlast - ${quality}`,
+          title: `MovieBlast ${vid.server} (${vid.lang || "EN"})`,
           url: signedUrl,
-          quality: matchQuality(vid.server),
-          headers: {
-            "User-Agent": "MovieBlast",
-            "Referer": "MovieBlast",
-            "x-request-x": "com.movieblast"
-          },
-          provider: "movieblast"
+          quality,
+          headers: __spreadValues({}, HEADERS),
+          provider: "movieblast",
+          isM3u8: /\.m3u8(\?|$)/i.test(httpsUrl)
         };
       }).filter((s) => s !== null);
+      const hasDirect = rawStreams.some((s) => !s.isM3u8);
+      const streams = rawStreams.filter((s) => !(hasDirect && s.isM3u8)).map((_a) => {
+        var _b = _a, { isM3u8 } = _b, rest = __objRest(_b, ["isM3u8"]);
+        return rest;
+      });
       console.log(`[MovieBlast] Successfully found ${streams.length} streams.`);
       return streams;
     } catch (error) {

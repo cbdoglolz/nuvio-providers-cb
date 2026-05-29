@@ -4,7 +4,12 @@ export const APP_ID = "com.movieblast";
 
 export const HEADERS = {
     "user-agent": "okhttp/5.0.0-alpha.6",
-    "x-request-x": APP_ID
+    "x-request-x": APP_ID,
+    "Accept-Encoding": "identity",
+    "Connection": "Keep-Alive",
+    "Icy-MetaData": "1",
+    "Referer": "MovieBlast",
+    "User-Agent": "MovieBlast"
 };
 
 export const SEARCH_HEADERS = {

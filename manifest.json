@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.10",
+  "version": "1.1.11",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -64,7 +64,7 @@
       "id": "uhdmovies",
       "name": "UHDMovies",
       "description": "UHD Movies streaming with multiple resolution",
-      "version": "1.2.2-cb3",
+      "version": "1.2.2-cb4",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -529,7 +529,7 @@
       "id": "movieblast",
       "name": "MovieBlast",
       "description": "Direct links via MovieBlast API with multi-language support",
-      "version": "1.0.0",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.11 - 2026-05-30
+
+- **UHDMovies `1.2.2-cb4`**: Added search fallback when TMDB title has a `Project …` prefix (e.g. *Project Hail Mary* also tries *Hail Mary*). Helps when the site lists the short title.
+- **MovieBlast `1.0.1-cb1`**: Fixed playback — added missing CDN headers (`Accept-Encoding: identity`, etc.), skip broken links, drop master `.m3u8` when direct `.mkv` exists, show quality in stream name.
+- **Vidlink `1.0.2-cb1`**: Removed misleading `Unknown` file-size label (Nuvio showed it beside resolution); unknown quality now displays as `Auto`.
+
 ## 1.1.10 - 2026-05-30
 
 - **HDHub4u `1.1.2-cb1`**: Search API moved from dead/blocked `search.pingora.fyi` to `search.hdhub4u.glass` (matches current Cloudstream). Oppenheimer now returns streams locally (was JSON parse error / HTML 403).
