@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.25 - 2026-05-30
+
+- **AnimePahe `1.0.2-cb5`**: Rebuilt from `src/animepahe/` (Cursor; Codex sandbox could not run esbuild). Restored TMDB `external_ids` fallback via `getImdbId()` when details lookup omits IMDb id.
+- **AllMovieLand**: Rebuilt `providers/allmovieland.js` from `src/` so generated output matches current source (Cloudflare retry helper unchanged).
+
 ## 1.1.24 - 2026-05-30
 
 - **Cinevibe `1.0.1-cb1`**: Added movie title fallbacks using TMDB original title and punctuation-normalized variants before giving up on the tokenized API request.

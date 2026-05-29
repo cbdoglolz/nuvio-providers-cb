@@ -1,6 +1,6 @@
 /**
  * animepahe - Built from src/animepahe/
- * Generated: 2026-05-29T17:20:11.265Z
+ * Generated: 2026-05-29T19:26:46.284Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -240,12 +240,14 @@ function unpack(code) {
 function extractKwik(url) {
   return __async(this, null, function* () {
     function fetchKwikHtml(useProxy) {
-      return fetchText(url, {
-        headers: __spreadProps(__spreadValues({}, HEADERS), {
-          "Referer": url,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }),
-        useProxy
+      return __async(this, null, function* () {
+        return fetchText(url, {
+          headers: __spreadProps(__spreadValues({}, HEADERS), {
+            "Referer": url,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }),
+          useProxy
+        });
       });
     }
     try {

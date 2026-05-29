@@ -1,5 +1,5 @@
 import cheerio from 'cheerio-without-node-native';
-import { fetchJson, fetchText, searchAnime, searchAnimeMany, extractQuality, getTmdbDetails, resolveMapping, getMalTitle } from './utils.js';
+import { fetchJson, fetchText, searchAnime, searchAnimeMany, extractQuality, getTmdbDetails, getImdbId, resolveMapping, getMalTitle } from './utils.js';
 import { extractKwik } from './extractors.js';
 import { MAIN_URL } from './constants.js';
 
@@ -69,7 +69,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
         if (mediaType === 'tv') {
             // --- SERIES STRATEGY: ID-BASED WITH VERIFICATION ---
-            const imdbId = tmdbDetails && tmdbDetails.imdbId;
+            const imdbId = (tmdbDetails && tmdbDetails.imdbId) || await getImdbId(tmdbId, mediaType);
             if (!imdbId) return [];
 
             const mapping = await resolveMapping(imdbId, season, episode);

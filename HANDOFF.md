@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.24`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.25`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -43,7 +43,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 
 ---
 
-## 3. Provider 状态总表（截至 1.1.11）
+## 3. Provider 状态总表（截至 1.1.24）
 
 | Provider | 版本 | 状态 | 说明 |
 |----------|------|------|------|
@@ -55,7 +55,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **MovieBlast** | 1.0.1-cb1 | ⚠️ 待验证 | 补 CDN headers、有 mkv 时跳过 m3u8；Hail Mary 本地 4 条 mkv 200 |
 | **YFlix** | 1.1.2 | ⚠️ 待验证 | 本地有流，enc-dec 路线 |
 | **4KHDHub** | 1.0.8-cb6 | ⚠️ seek 未解 | HubDrive→R2 直链已做；用户放弃继续追 seek；按清晰度排序 |
-| **AnimePahe** | 1.0.2-cb4 | ⚠️ 待真机复测 | 搜索/MAL 映射加强：TMDB title aliases、Season/Nth Season 回退、验证 8 个 MAL 候选；Kwik 直连失败后走 AnimePahe proxy |
+| **AnimePahe** | 1.0.2-cb5 | ⚠️ 待真机复测 | 搜索/MAL 映射加强：TMDB title aliases、Season/Nth Season 回退、验证 8 个 MAL 候选；Kwik 直连失败后走 AnimePahe proxy |
 | **AnimeKai** | 1.1.3-cb5 | ⚠️ 待真机复测 | **能搜到新番、有源**；必须继续修。1.1.15 保留 MegaUp master playlist 作为 Auto fallback，同时保留解析出的清晰度 variant |
 | **Vixsrc / MoviesMod** | Vixsrc 1.0.2-cb2 / MoviesMod 1.0.2-cb1 | ❓ 真机 | 1.1.20 加 `Cloudflare.solve()` 403/503 retry；数据中心 IP 仍可能 403，需真机验证 |
 | **Dooflix** | removed in 1.1.21 | ❌ 已删除 | API key 轮换 401；用户确认后从 manifest/provider/src 删除 |
@@ -76,23 +76,27 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 
 ---
 
-## 4. 本会话完成的主要 commit（从新到旧）
+## 4. 主要 commit（从新到旧，1.1.12–1.1.24 为 Codex；1.1.25 为 Cursor 接续）
 
 ```
-186ca4a Bump Vidlink to 1.0.2-cb1 in manifest
-61918c8 Fix MovieBlast playback, UHDMovies title search, Vidlink labels  → 1.1.11
-1efc308 Fix HDHub4u search API and UHDMovies instant links              → 1.1.10
-6028d4e Fix AnimeKai MegaUp playback and AnimePahe Kwik CF bypass       → 1.1.9
-e042860 Fix MovieBox movies via resourceDetectors download URLs         → 1.1.8
-b504970 Improve AnimePahe title matching                                → 1.1.7
-c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
+c6d3805 Improve Cinevibe title fallback and retry                       → 1.1.24
+6b933e8 Improve DahmerMovies title fallback and retry                   → 1.1.23
+2f61c1d Improve AllMovieLand search and retry                           → 1.1.22
+aa86759 Remove disabled dead providers                                  → 1.1.21
+e9fb000 Add Cloudflare retry for Vixsrc and MoviesMod                   → 1.1.20
+a0e17c9 Add MovieBox TV resource page fallback                          → 1.1.18
+7bcc938 Make DVDPlay matching year aware                                → 1.1.17
+f2bcdab Re-enable AnimeKai and improve MegaUp HLS handling              → 1.1.13
+61918c8 Fix MovieBlast, UHDMovies, Vidlink                              → 1.1.11
 ```
+
+**Push 规则：** Codex 云端无法 `git push`（443 被拦）且 GitHub 连接器只读。改完 commit 后由 **Cursor 在本机**执行 `git push origin main`。
 
 ---
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.24**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.25**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -117,7 +121,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 - Proxy 搜索正常：`animepaheproxy.phisheranimepahe.workers.dev`
 - MAL 映射：`id-mapping-api-malid.hf.space`
 - 1.1.15：`src/animepahe/` 已加入 TMDB title aliases + Kwik direct→proxy fallback，并手动同步到 `providers/animepahe.js`
-- Codex 当前环境跑 `node build.js animepahe` 会被 esbuild 路径权限挡住：`Cannot read directory "../../..": Access is denied.` Cursor 接手可优先 rebuild 验证源码/产物是否一致
+- **Cursor 可正常** `node build.js animepahe` / `allmovieland`；Codex 沙箱常会 esbuild 路径权限失败，改 `src/` 后应用 Cursor rebuild 并提交 `providers/*.js`
 
 ### UHDMovies Instant Download（phisher 对齐）
 

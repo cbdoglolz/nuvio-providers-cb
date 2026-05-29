@@ -1,6 +1,6 @@
 /**
  * allmovieland - Built from src/allmovieland/
- * Generated: 2026-04-26T06:39:13.171Z
+ * Generated: 2026-05-29T19:26:46.394Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -184,9 +184,8 @@ function findBestTitleMatch(mediaInfo, searchResults) {
 }
 
 // src/allmovieland/index.js
-function fetchWithCfRetry(url, options = {}) {
-  return __async(this, null, function* () {
-    var _a, _b, _c;
+function fetchWithCfRetry(_0) {
+  return __async(this, arguments, function* (url, options = {}) {
     const res = yield fetch(url, options);
     if (![403, 503].includes(res.status) || typeof Cloudflare === "undefined" || !Cloudflare.solve) {
       return res;
@@ -195,7 +194,7 @@ function fetchWithCfRetry(url, options = {}) {
     const solution = yield Cloudflare.solve(url);
     const retryHeaders = __spreadValues(__spreadValues({}, options.headers || {}), (solution == null ? void 0 : solution.headers) || {});
     if ((solution == null ? void 0 : solution.cookie) || (solution == null ? void 0 : solution.cookies)) {
-      retryHeaders.Cookie = ((_a = solution == null ? void 0 : solution.cookie) != null ? _a : solution == null ? void 0 : solution.cookies);
+      retryHeaders.Cookie = solution.cookie || solution.cookies;
     }
     if (solution == null ? void 0 : solution.userAgent) {
       retryHeaders["User-Agent"] = solution.userAgent;
