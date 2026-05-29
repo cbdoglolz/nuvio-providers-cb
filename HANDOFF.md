@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.18`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.19`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -58,11 +58,11 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **AnimePahe** | 1.0.2-cb4 | ⚠️ 待真机复测 | 搜索/MAL 映射加强：TMDB title aliases、Season/Nth Season 回退、验证 8 个 MAL 候选；Kwik 直连失败后走 AnimePahe proxy |
 | **AnimeKai** | 1.1.3-cb5 | ⚠️ 待真机复测 | **能搜到新番、有源**；必须继续修。1.1.15 保留 MegaUp master playlist 作为 Auto fallback，同时保留解析出的清晰度 variant |
 | **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
-| **Dooflix** | 1.0.1-cb1 | ❌ 阻塞 | API key 轮换 401，需用户从 App 提供新 key |
+| **Dooflix** | 1.0.2-cb2 | ❌ 默认关闭 | API key 轮换 401，需用户从 App/源站提供新 key；1.1.19 默认关闭，避免无效搜索 |
 | **VidnestAnime** | 1.0.1-cb1 | ❌ 默认关闭 | 旧代码打 `backend.vidnest.fun`；当前公开 Vidnest 是 `vidnest.fun/anime/[ANILIST_ID]/[EP]/[SUB_OR_DUB]` embed 形态，不是旧 JSON 后端，需重写 |
 | **NetMirror** | 1.0.3-cb1 | ❌ 已默认关闭 | 源站限流，10 分钟占位视频 |
 | **DVDPlay** | 1.0.3-cb1 | ⚠️ 匹配更安全 | 印度站；1.1.17 加年份硬过滤/惩罚，避免 Oppenheimer → Kara 2026 这类错片 |
-| **Cinemacity** | 1.0.0 | ❌ 本地 0 流 | 未修 |
+| **Cinemacity** | 1.0.1-cb1 | ❌ 默认关闭 | 依赖 stale site cookies，本地 0 流；1.1.19 默认关闭，等新 cookie/提取路径 |
 
 ### 已评估、未 port 的来源
 
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.18**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.19**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -169,7 +169,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 4. **MovieBox TV**：若仍 0 流，需要针对具体 `resourceLink` 域名写站点 extractor
 5. **VidnestAnime**：只有在愿意重写 embed/API 提取时再启用
 6. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
-7. **Dooflix**：等用户提供新 API key
+7. **Dooflix / CinemaCity**：默认关闭；等用户提供新 key/cookie 或决定重写
 8. **4KHDHub seek**：用户已放弃，除非主动回来
 
 ---

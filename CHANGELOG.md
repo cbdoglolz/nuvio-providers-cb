@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.19 - 2026-05-30
+
+- **DooFlix `1.0.2-cb2`**: Disabled by default. The provider uses a hard-coded API key that is known to rotate/return 401; it should stay off until a current key is supplied from the app/source.
+- **CinemaCity `1.0.1-cb1`**: Disabled by default. The provider depends on stale site cookies and has been returning no streams, so leaving it enabled only adds dead searches.
+- No provider files were deleted; both can be re-enabled later if a fresh API key/cookie-backed extraction path is available.
+
 ## 1.1.18 - 2026-05-30
 
 - **MovieBox `1.1.3-cb3`**: Added a TV fallback for `resourceDetectors[].resourceLink` pages when episode `downloadUrl` is empty.
