@@ -120,13 +120,52 @@ function calculateTitleSimilarity(title1, title2) {
   }
   return score;
 }
+function addTerm(terms, term) {
+  const clean = (term || "").replace(/\s+/g, " ").trim();
+  if (!clean)
+    return;
+  const key = clean.toLowerCase();
+  if (!terms.some((t) => t.toLowerCase() === key))
+    terms.push(clean);
+}
+function ordinal(n) {
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th";
+  return `${n}${suffix}`;
+}
+function buildSearchTerms(mediaInfo, mediaType, season) {
+  var _a, _b;
+  const terms = [];
+  const originalTitle = mediaType === "tv" ? (_a = mediaInfo.data) == null ? void 0 : _a.original_name : (_b = mediaInfo.data) == null ? void 0 : _b.original_title;
+  const titles = [mediaInfo.title, originalTitle].filter(Boolean);
+  for (const title of titles) {
+    addTerm(terms, title);
+    addTerm(terms, title.replace(/[:._-]+/g, " "));
+    addTerm(terms, title.replace(/[^\w\s]/g, " "));
+    addTerm(terms, title.replace(/[^\w]/g, ""));
+    if (mediaType === "tv" && season) {
+      addTerm(terms, `${title} Season ${season}`);
+      addTerm(terms, `${title} ${ordinal(season)} Season`);
+      addTerm(terms, `${title} S${String(season).padStart(2, "0")}`);
+    }
+  }
+  return terms.slice(0, 12);
+}
 function findBestTitleMatch(mediaInfo, searchResults) {
+  var _a, _b;
   if (!searchResults || searchResults.length === 0)
     return null;
+  const candidateTitles = [
+    mediaInfo.title,
+    (_a = mediaInfo.data) == null ? void 0 : _a.original_title,
+    (_b = mediaInfo.data) == null ? void 0 : _b.original_name
+  ].filter(Boolean);
   let bestMatch = null;
   let bestScore = 0;
   for (const result of searchResults) {
-    let score = calculateTitleSimilarity(mediaInfo.title, result.title);
+    let score = 0;
+    for (const candidateTitle of candidateTitles) {
+      score = Math.max(score, calculateTitleSimilarity(candidateTitle, result.title));
+    }
     if (mediaInfo.year && result.year) {
       const yearDiff = Math.abs(mediaInfo.year - result.year);
       if (yearDiff === 0)
@@ -145,25 +184,64 @@ function findBestTitleMatch(mediaInfo, searchResults) {
 }
 
 // src/allmovieland/index.js
+function fetchWithCfRetry(url, options = {}) {
+  return __async(this, null, function* () {
+    var _a, _b, _c;
+    const res = yield fetch(url, options);
+    if (![403, 503].includes(res.status) || typeof Cloudflare === "undefined" || !Cloudflare.solve) {
+      return res;
+    }
+    console.log(`[AllMovieLand] Cloudflare challenge on ${url}, retrying with solved cookies.`);
+    const solution = yield Cloudflare.solve(url);
+    const retryHeaders = __spreadValues(__spreadValues({}, options.headers || {}), (solution == null ? void 0 : solution.headers) || {});
+    if ((solution == null ? void 0 : solution.cookie) || (solution == null ? void 0 : solution.cookies)) {
+      retryHeaders.Cookie = ((_a = solution == null ? void 0 : solution.cookie) != null ? _a : solution == null ? void 0 : solution.cookies);
+    }
+    if (solution == null ? void 0 : solution.userAgent) {
+      retryHeaders["User-Agent"] = solution.userAgent;
+    }
+    return fetch(url, __spreadProps(__spreadValues({}, options), { headers: retryHeaders }));
+  });
+}
+function searchAllMovieLand(query) {
+  return __async(this, null, function* () {
+    const searchUrl = `${MAIN_URL}/index.php?story=${encodeURIComponent(query)}&do=search&subaction=search`;
+    const res = yield fetchWithCfRetry(searchUrl, { headers: HEADERS });
+    const html = yield res.text();
+    const $ = import_cheerio_without_node_native.default.load(html);
+    const results = [];
+    $("article.short-mid").each((i, el) => {
+      const title = $(el).find("a > h3").text().trim();
+      const href = $(el).find("a").attr("href");
+      if (!title || !href)
+        return;
+      const yearMatch = title.match(/\((\d{4})\)/);
+      const year = yearMatch ? parseInt(yearMatch[1]) : null;
+      results.push({ title, href, year });
+    });
+    return results;
+  });
+}
 function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) {
   return __async(this, null, function* () {
     console.log(`[AllMovieLand] Fetching streams for TMDB ID: ${tmdbId}, Type: ${mediaType}`);
     try {
       const mediaInfo = yield getTMDBDetails(tmdbId, mediaType);
       console.log(`[AllMovieLand] TMDB Info: "${mediaInfo.title}" (${mediaInfo.year || "N/A"})`);
-      const query = mediaInfo.title;
-      const searchUrl = `${MAIN_URL}/index.php?story=${encodeURIComponent(query)}&do=search&subaction=search`;
-      const res = yield fetch(searchUrl, { headers: HEADERS });
-      const html = yield res.text();
-      const $ = import_cheerio_without_node_native.default.load(html);
       const searchResults = [];
-      $("article.short-mid").each((i, el) => {
-        const title = $(el).find("a > h3").text().trim();
-        const href = $(el).find("a").attr("href");
-        const yearMatch = title.match(/\((\d{4})\)/);
-        const year = yearMatch ? parseInt(yearMatch[1]) : null;
-        searchResults.push({ title, href, year });
-      });
+      const seen = /* @__PURE__ */ new Set();
+      const searchTerms = buildSearchTerms(mediaInfo, mediaType, season);
+      for (const query of searchTerms) {
+        const results = yield searchAllMovieLand(query);
+        console.log(`[AllMovieLand] Search "${query}" returned ${results.length} result(s).`);
+        for (const result of results) {
+          const key = result.href || result.title;
+          if (seen.has(key))
+            continue;
+          seen.add(key);
+          searchResults.push(result);
+        }
+      }
       if (searchResults.length === 0) {
         console.log("[AllMovieLand] No search results found.");
         return [];
@@ -175,7 +253,7 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
       }
       const selectedMedia = bestMatch;
       console.log(`[AllMovieLand] Selected: "${selectedMedia.title}" (${selectedMedia.href})`);
-      const docRes = yield fetch(selectedMedia.href, { headers: HEADERS });
+      const docRes = yield fetchWithCfRetry(selectedMedia.href, { headers: HEADERS });
       const docHtml = yield docRes.text();
       const doc$ = import_cheerio_without_node_native.default.load(docHtml);
       const tabsContent = doc$("div.tabs__content script").html() || "";
@@ -188,7 +266,7 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
         return [];
       }
       const embedLink = `${playerDomain}/play/${id}`;
-      const embedRes = yield fetch(embedLink, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: selectedMedia.href }) });
+      const embedRes = yield fetchWithCfRetry(embedLink, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: selectedMedia.href }) });
       const embedHtml = yield embedRes.text();
       const embed$ = import_cheerio_without_node_native.default.load(embedHtml);
       const lastScript = embed$("body > script").last().html() || "";
@@ -201,7 +279,7 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
       let fileUrl = json.file.replace(/\\\//g, "/");
       if (!fileUrl.startsWith("http"))
         fileUrl = `${playerDomain}${fileUrl}`;
-      const fileRes = yield fetch(fileUrl, {
+      const fileRes = yield fetchWithCfRetry(fileUrl, {
         method: "POST",
         headers: __spreadProps(__spreadValues({}, HEADERS), { "X-CSRF-TOKEN": json.key, "Referer": embedLink })
       });
@@ -238,7 +316,7 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
         try {
           const playlistFile = fileObj.file.replace(/^~/, "");
           const playlistUrl = `${playerDomain}/playlist/${playlistFile}.txt`;
-          const postRes = yield fetch(playlistUrl, {
+          const postRes = yield fetchWithCfRetry(playlistUrl, {
             method: "POST",
             headers: __spreadProps(__spreadValues({}, HEADERS), { "X-CSRF-TOKEN": json.key, "Referer": embedLink })
           });

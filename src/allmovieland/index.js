@@ -1,6 +1,48 @@
 import cheerio from 'cheerio-without-node-native';
-import { getTMDBDetails, findBestTitleMatch } from './utils.js';
+import { getTMDBDetails, findBestTitleMatch, buildSearchTerms } from './utils.js';
 import { MAIN_URL, HEADERS } from './constants.js';
+
+async function fetchWithCfRetry(url, options = {}) {
+    const res = await fetch(url, options);
+    if (![403, 503].includes(res.status) || typeof Cloudflare === "undefined" || !Cloudflare.solve) {
+        return res;
+    }
+
+    console.log(`[AllMovieLand] Cloudflare challenge on ${url}, retrying with solved cookies.`);
+    const solution = await Cloudflare.solve(url);
+    const retryHeaders = {
+        ...(options.headers || {}),
+        ...(solution?.headers || {})
+    };
+    if (solution?.cookie || solution?.cookies) {
+        retryHeaders.Cookie = solution.cookie || solution.cookies;
+    }
+    if (solution?.userAgent) {
+        retryHeaders["User-Agent"] = solution.userAgent;
+    }
+
+    return fetch(url, { ...options, headers: retryHeaders });
+}
+
+async function searchAllMovieLand(query) {
+    const searchUrl = `${MAIN_URL}/index.php?story=${encodeURIComponent(query)}&do=search&subaction=search`;
+    const res = await fetchWithCfRetry(searchUrl, { headers: HEADERS });
+    const html = await res.text();
+    const $ = cheerio.load(html);
+    const results = [];
+
+    $('article.short-mid').each((i, el) => {
+        const title = $(el).find('a > h3').text().trim();
+        const href = $(el).find('a').attr('href');
+        if (!title || !href) return;
+
+        const yearMatch = title.match(/\((\d{4})\)/);
+        const year = yearMatch ? parseInt(yearMatch[1]) : null;
+        results.push({ title, href, year });
+    });
+
+    return results;
+}
 
 async function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) {
     console.log(`[AllMovieLand] Fetching streams for TMDB ID: ${tmdbId}, Type: ${mediaType}`);
@@ -8,24 +50,19 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
         const mediaInfo = await getTMDBDetails(tmdbId, mediaType);
         console.log(`[AllMovieLand] TMDB Info: "${mediaInfo.title}" (${mediaInfo.year || "N/A"})`);
         
-        const query = mediaInfo.title;
-        const searchUrl = `${MAIN_URL}/index.php?story=${encodeURIComponent(query)}&do=search&subaction=search`;
-        
-        const res = await fetch(searchUrl, { headers: HEADERS });
-        const html = await res.text();
-        const $ = cheerio.load(html);
-        
         const searchResults = [];
-        $('article.short-mid').each((i, el) => {
-            const title = $(el).find('a > h3').text().trim();
-            const href = $(el).find('a').attr('href');
-            
-            // Safer year extraction: looks for 4 digits inside parentheses
-            const yearMatch = title.match(/\((\d{4})\)/);
-            const year = yearMatch ? parseInt(yearMatch[1]) : null;
-
-            searchResults.push({ title, href, year });
-        });
+        const seen = new Set();
+        const searchTerms = buildSearchTerms(mediaInfo, mediaType, season);
+        for (const query of searchTerms) {
+            const results = await searchAllMovieLand(query);
+            console.log(`[AllMovieLand] Search "${query}" returned ${results.length} result(s).`);
+            for (const result of results) {
+                const key = result.href || result.title;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                searchResults.push(result);
+            }
+        }
 
         if (searchResults.length === 0) {
             console.log("[AllMovieLand] No search results found.");
@@ -41,7 +78,7 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
         const selectedMedia = bestMatch;
         console.log(`[AllMovieLand] Selected: "${selectedMedia.title}" (${selectedMedia.href})`);
         
-        const docRes = await fetch(selectedMedia.href, { headers: HEADERS });
+        const docRes = await fetchWithCfRetry(selectedMedia.href, { headers: HEADERS });
         const docHtml = await docRes.text();
         const doc$ = cheerio.load(docHtml);
         
@@ -57,7 +94,7 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
         }
 
         const embedLink = `${playerDomain}/play/${id}`;
-        const embedRes = await fetch(embedLink, { headers: { ...HEADERS, Referer: selectedMedia.href } });
+        const embedRes = await fetchWithCfRetry(embedLink, { headers: { ...HEADERS, Referer: selectedMedia.href } });
         const embedHtml = await embedRes.text();
         const embed$ = cheerio.load(embedHtml);
         
@@ -73,7 +110,7 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
         let fileUrl = json.file.replace(/\\\//g, '/');
         if (!fileUrl.startsWith('http')) fileUrl = `${playerDomain}${fileUrl}`;
         
-        const fileRes = await fetch(fileUrl, {
+        const fileRes = await fetchWithCfRetry(fileUrl, {
             method: 'POST',
             headers: { ...HEADERS, 'X-CSRF-TOKEN': json.key, 'Referer': embedLink }
         });
@@ -119,7 +156,7 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
                 const playlistFile = fileObj.file.replace(/^~/, '');
                 const playlistUrl = `${playerDomain}/playlist/${playlistFile}.txt`;
                 
-                const postRes = await fetch(playlistUrl, {
+                const postRes = await fetchWithCfRetry(playlistUrl, {
                     method: 'POST',
                     headers: { ...HEADERS, 'X-CSRF-TOKEN': json.key, 'Referer': embedLink }
                 });

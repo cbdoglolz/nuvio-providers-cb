@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.22 - 2026-05-30
+
+- **AllMovieLand `1.0.1-cb1`**: Added aggregated title alias search using TMDB title, original title/name, punctuation-stripped forms, no-space forms, and season-specific TV terms.
+- Added `Cloudflare.solve()` retry support for AllMovieLand search pages, media pages, embed pages, file-list POSTs, and playlist POSTs when the site returns 403/503.
+- `node build.js allmovieland` is still blocked by the local Windows/esbuild path permission issue, so the source changes were manually mirrored into `providers/allmovieland.js`.
+
 ## 1.1.21 - 2026-05-30
 
 - Removed disabled/dead providers from the subscription manifest and provider files after user confirmation: NetMirror, VidnestAnime, DooFlix, CinemaCity, and VIDEASY.

@@ -40,12 +40,53 @@ export function calculateTitleSimilarity(title1, title2) {
     return score;
 }
 
+function addTerm(terms, term) {
+    const clean = (term || "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (!terms.some(t => t.toLowerCase() === key)) terms.push(clean);
+}
+
+function ordinal(n) {
+    const suffix = (n % 100 >= 11 && n % 100 <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th");
+    return `${n}${suffix}`;
+}
+
+export function buildSearchTerms(mediaInfo, mediaType, season) {
+    const terms = [];
+    const originalTitle = mediaType === "tv" ? mediaInfo.data?.original_name : mediaInfo.data?.original_title;
+    const titles = [mediaInfo.title, originalTitle].filter(Boolean);
+
+    for (const title of titles) {
+        addTerm(terms, title);
+        addTerm(terms, title.replace(/[:._-]+/g, " "));
+        addTerm(terms, title.replace(/[^\w\s]/g, " "));
+        addTerm(terms, title.replace(/[^\w]/g, ""));
+
+        if (mediaType === "tv" && season) {
+            addTerm(terms, `${title} Season ${season}`);
+            addTerm(terms, `${title} ${ordinal(season)} Season`);
+            addTerm(terms, `${title} S${String(season).padStart(2, "0")}`);
+        }
+    }
+
+    return terms.slice(0, 12);
+}
+
 export function findBestTitleMatch(mediaInfo, searchResults) {
     if (!searchResults || searchResults.length === 0) return null;
+    const candidateTitles = [
+        mediaInfo.title,
+        mediaInfo.data?.original_title,
+        mediaInfo.data?.original_name
+    ].filter(Boolean);
     let bestMatch = null;
     let bestScore = 0;
     for (const result of searchResults) {
-        let score = calculateTitleSimilarity(mediaInfo.title, result.title);
+        let score = 0;
+        for (const candidateTitle of candidateTitles) {
+            score = Math.max(score, calculateTitleSimilarity(candidateTitle, result.title));
+        }
         if (mediaInfo.year && result.year) {
             const yearDiff = Math.abs(mediaInfo.year - result.year);
             if (yearDiff === 0) score += 0.2;
