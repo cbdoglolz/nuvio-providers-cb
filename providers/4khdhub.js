@@ -209,6 +209,29 @@ function getSeekHint(source, url) {
     return "Seek Maybe";
   return "No Seek?";
 }
+function getBaseUrl(url) {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch (e) {
+    return "";
+  }
+}
+function cleanTitle(title) {
+  const normalized = String(title || "").replace(/\.[a-zA-Z0-9]{2,4}$/, "").replace(/WEB[-_. ]?DL/gi, "WEB-DL").replace(/WEB[-_. ]?RIP/gi, "WEBRIP").replace(/H[ .]?265/gi, "H265").replace(/H[ .]?264/gi, "H264").replace(/DDP[ .]?([0-9]\.[0-9])/gi, "DDP$1");
+  const sourceTags = /* @__PURE__ */ new Set(["WEB-DL", "WEBRIP", "BLURAY", "HDRIP", "DVDRIP", "HDTV", "CAM", "TS", "BRRIP", "BDRIP"]);
+  const codecTags = /* @__PURE__ */ new Set(["H264", "H265", "X264", "X265", "HEVC", "AVC"]);
+  const audioTags = ["AAC", "AC3", "DTS", "MP3", "FLAC", "DD", "DDP", "EAC3"];
+  const hdrTags = /* @__PURE__ */ new Set(["SDR", "HDR", "HDR10", "HDR10+", "DV", "DOLBYVISION"]);
+  return [...new Set(normalized.split(/[ _.]+/).map((part) => {
+    const p = part.toUpperCase();
+    if (sourceTags.has(p) || codecTags.has(p) || audioTags.some((tag) => p.startsWith(tag)) || hdrTags.has(p))
+      return p === "DV" ? "DOLBYVISION" : p;
+    if (p === "NF" || p === "CR" || p === "ATMOS")
+      return p;
+    return null;
+  }).filter(Boolean))].join(" ");
+}
 
 // src/4khdhub/search.js
 var cheerio = require("cheerio-without-node-native");
@@ -328,6 +351,154 @@ function extractSourceResults($, el) {
     return null;
   });
 }
+function extractMetaFromItem($, el) {
+  const localHtml = $(el).html() || "";
+  const sizeMatch = localHtml.match(/([\d.]+ ?[GM]B)/i);
+  const heightMatch = localHtml.match(/\d{3,}p/i);
+  const title = $(el).find(".file-title, .episode-file-title, .flex-1.text-left.font-semibold").text().trim() || $(el).text().replace(/\s+/g, " ").trim();
+  let height = heightMatch ? parseInt(heightMatch[0]) : 0;
+  if (height === 0 && /4k/i.test(`${title} ${localHtml}`))
+    height = 2160;
+  return {
+    bytes: sizeMatch ? parseBytes(sizeMatch[1]) : 0,
+    height,
+    title
+  };
+}
+function absolutizeUrl(url, baseUrl) {
+  if (!url)
+    return "";
+  try {
+    return url.startsWith("http") ? url : new URL(url, baseUrl).toString();
+  } catch (e) {
+    return url;
+  }
+}
+function extractRawLinksFromItem($, el, pageUrl) {
+  const links = [];
+  $(el).find("a").each((_, a) => {
+    const href = absolutizeUrl($(a).attr("href"), pageUrl);
+    if (href && !links.includes(href))
+      links.push(href);
+  });
+  return links;
+}
+function extractHubCdn(hubCdnUrl, baseMeta) {
+  return __async(this, null, function* () {
+    const html = yield fetchText(hubCdnUrl, { headers: { Referer: hubCdnUrl } });
+    if (!html)
+      return [];
+    let encoded = "";
+    const reurlMatch = html.match(/reurl\s*=\s*["']([^"']+)["']/);
+    if (reurlMatch)
+      encoded = reurlMatch[1].split("?r=").pop();
+    if (!encoded) {
+      const rMatch = html.match(/[?&]r=([A-Za-z0-9+/=]+)/) || html.match(/r=([A-Za-z0-9+/=]+)/);
+      encoded = rMatch ? rMatch[1] : "";
+    }
+    if (!encoded)
+      return [];
+    try {
+      const decoded = atob(encoded).split("link=").pop();
+      if (!decoded)
+        return [];
+      return [{
+        source: "HUBCDN",
+        url: decoded,
+        meta: baseMeta
+      }];
+    } catch (e) {
+      console.log(`[4KHDHub] HUBCDN decode failed: ${e.message}`);
+      return [];
+    }
+  });
+}
+function extractHblinks(hblinksUrl, baseMeta) {
+  return __async(this, null, function* () {
+    const html = yield fetchText(hblinksUrl, { headers: { Referer: hblinksUrl } });
+    if (!html)
+      return [];
+    const $ = cheerio2.load(html);
+    const links = [];
+    $("h3 a, h5 a, div.entry-content p a, a").each((_, el) => {
+      const href = absolutizeUrl($(el).attr("href"), hblinksUrl);
+      if (href && !links.includes(href))
+        links.push(href);
+    });
+    const nested = yield Promise.all(links.map((link) => extractResolvedLink(link, baseMeta)));
+    return nested.flat();
+  });
+}
+function resolveBuzzServer(buzzUrl, baseMeta) {
+  return __async(this, null, function* () {
+    try {
+      const response = yield fetch(buzzUrl.endsWith("/download") ? buzzUrl : `${buzzUrl.replace(/\/$/, "")}/download`, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Referer": buzzUrl
+        },
+        redirect: "manual"
+      });
+      const target = response.headers.get("hx-redirect") || response.headers.get("HX-Redirect") || response.headers.get("location");
+      return target ? [{
+        source: "BuzzServer",
+        url: target,
+        meta: baseMeta
+      }] : [];
+    } catch (e) {
+      console.log(`[4KHDHub] BuzzServer failed: ${e.message}`);
+      return [];
+    }
+  });
+}
+function expandNestedLinks(links, baseMeta) {
+  return __async(this, null, function* () {
+    const expanded = [];
+    for (const link of links) {
+      const lower = String(link.url || "").toLowerCase();
+      if (lower.includes("hubcdn")) {
+        expanded.push(...yield extractHubCdn(link.url, link.meta || baseMeta));
+      } else if (String(link.source || "").toLowerCase().includes("buzzserver")) {
+        const buzzLinks = yield resolveBuzzServer(link.url, link.meta || baseMeta);
+        expanded.push(...(buzzLinks.length ? buzzLinks : [link]));
+      } else {
+        expanded.push(link);
+      }
+    }
+    return expanded;
+  });
+}
+function extractResolvedLink(rawUrl, baseMeta) {
+  return __async(this, null, function* () {
+    if (!rawUrl)
+      return [];
+    let resolved = rawUrl;
+    if (resolved.includes("id=")) {
+      resolved = yield resolveRedirectUrl(resolved) || resolved;
+    }
+    const lower = resolved.toLowerCase();
+    if (lower.includes("hubdrive") || lower.includes("hubcloud"))
+      return yield expandNestedLinks(yield extractHubCloud(resolved, baseMeta), baseMeta);
+    if (lower.includes("hubcdn"))
+      return yield extractHubCdn(resolved, baseMeta);
+    if (lower.includes("hblinks"))
+      return yield extractHblinks(resolved, baseMeta);
+    if (lower.includes("pixeldrain") || lower.includes("pixelserver") || lower.includes("pixeldra")) {
+      const base = getBaseUrl(resolved);
+      const finalUrl = resolved.includes("download") ? resolved : `${base}/api/file/${resolved.split("/").filter(Boolean).pop()}?download`;
+      return [{
+        source: "Pixeldrain",
+        url: finalUrl,
+        meta: baseMeta
+      }];
+    }
+    return [{
+      source: "Direct",
+      url: resolved,
+      meta: baseMeta
+    }];
+  });
+}
 function extractHubCloud(hubCloudUrl, baseMeta) {
   return __async(this, null, function* () {
     if (!hubCloudUrl)
@@ -374,7 +545,7 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
     const titleText = $("div.card-header").first().text().trim() || $("title").text().trim();
     const currentMeta = __spreadProps(__spreadValues({}, baseMeta), {
       bytes: parseBytes(sizeText) || baseMeta.bytes,
-      title: titleText || baseMeta.title
+      title: cleanTitle(titleText) || titleText || baseMeta.title
     });
     $("a.btn, a").each((_, el) => {
       const text = $(el).text();
@@ -382,16 +553,28 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
       if (!href)
         return;
       const label = text.toLowerCase();
-      if (label.includes("fsl") || label.includes("download file") || label.includes("s3 server") || label.includes("fslv2") || label.includes("mega server") || label.includes("pdl server")) {
+      if (label.includes("fsl") || label.includes("download file") || label.includes("s3 server") || label.includes("fslv2") || label.includes("mega server") || label.includes("pdl server") || label.includes("pdl")) {
         results.push({
           source: text.trim() || "Direct",
+          url: href,
+          meta: currentMeta
+        });
+      } else if (label.includes("buzzserver")) {
+        results.push({
+          source: "BuzzServer",
+          url: href.endsWith("/download") ? href : `${href.replace(/\/$/, "")}/download`,
+          meta: currentMeta
+        });
+      } else if (href.toLowerCase().includes("hubcdn")) {
+        results.push({
+          source: "HUBCDN",
           url: href,
           meta: currentMeta
         });
       } else if (label.includes("pixelserver") || label.includes("pixel server") || label.includes("pixeldrain") || label.includes("pixeldra")) {
         const pixelUrl = href.includes("?download") ? href : href.replace("/u/", "/api/file/").replace(/\/file\/([^/?#]+).*$/, "/api/file/$1?download");
         results.push({
-          source: "PixelServer",
+          source: "Pixeldrain",
           url: pixelUrl,
           meta: currentMeta
         });
@@ -399,6 +582,29 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
     });
     return results;
   });
+}
+function toNuvioStream(link, sourceMeta) {
+  const meta = link.meta || {};
+  const fallbackMeta = sourceMeta || {};
+  const source = normalizeSourceName(link.source);
+  const seekHint = getSeekHint(source, link.url);
+  const seekScore = getSeekScore(source, link.url);
+  const height = meta.height || fallbackMeta.height;
+  return {
+    name: `4KHDHub - ${source} ${seekHint}${height ? ` ${height}p` : ""}`,
+    title: `${meta.title || fallbackMeta.title || "4KHDHub"}
+${source} | ${seekHint} | ${formatBytes(meta.bytes || fallbackMeta.bytes || 0)}`,
+    url: link.url,
+    quality: height ? `${height}p` : void 0,
+    headers: {
+      "User-Agent": USER_AGENT
+    },
+    provider: "4khdhub",
+    behaviorHints: {
+      bingeGroup: `4khdhub-${source}`,
+      seekScore
+    }
+  };
 }
 
 // src/4khdhub/index.js
@@ -425,9 +631,11 @@ function getStreams(tmdbId, type, season, episode) {
     if (isSeries && season && episode) {
       const seasonStr = "S" + String(season).padStart(2, "0");
       const episodeStr = "Episode-" + String(episode).padStart(2, "0");
-      $(".episode-item").each((_, el) => {
-        if ($(".episode-title", el).text().includes(seasonStr)) {
-          const downloadItems = $(".episode-download-item", el).filter((_2, item) => $(item).text().includes(episodeStr));
+      const episodeRegex = new RegExp(`Episode-?0*${episode}(?!\\\\d)`, "i");
+      $("div.episodes-list div.season-item, .episode-item").each((_, el) => {
+        const seasonText = $("div.episode-number, .episode-title", el).text();
+        if (seasonText.includes(seasonStr) || new RegExp(`S?0*${season}(?!\\\\d)`, "i").test(seasonText)) {
+          const downloadItems = $(".episode-download-item", el).filter((_2, item) => episodeRegex.test($(item).text()));
           downloadItems.each((_2, item) => {
             itemsToProcess.push(item);
           });
@@ -441,33 +649,16 @@ function getStreams(tmdbId, type, season, episode) {
     console.log(`[4KHDHub] Processing ${itemsToProcess.length} items`);
     const streamPromises = itemsToProcess.map((item) => __async(this, null, function* () {
       try {
-        const sourceResult = yield extractSourceResults($, item);
-        if (sourceResult && sourceResult.url) {
-          console.log(`[4KHDHub] Extracting from HubCloud: ${sourceResult.url}`);
-          const extractedLinks = yield extractHubCloud(sourceResult.url, sourceResult.meta);
-          return extractedLinks.map((link) => {
-            const source = normalizeSourceName(link.source);
-            const seekHint = getSeekHint(source, link.url);
-            const seekScore = getSeekScore(source, link.url);
-            return {
-              name: `4KHDHub - ${source} ${seekHint}${sourceResult.meta.height ? ` ${sourceResult.meta.height}p` : ""}`,
-              title: `${link.meta.title}
-${source} | ${seekHint} | ${formatBytes(link.meta.bytes || 0)}`,
-              url: link.url,
-              quality: sourceResult.meta.height ? `${sourceResult.meta.height}p` : void 0,
-              headers: {
-                "User-Agent": USER_AGENT,
-                "Referer": sourceResult.url
-              },
-              provider: "4khdhub",
-              behaviorHints: {
-                bingeGroup: `4khdhub-${source}`,
-                seekScore
-              }
-            };
-          });
+        const meta = extractMetaFromItem($, item);
+        const rawLinks = extractRawLinksFromItem($, item, pageUrl);
+        if (rawLinks.length === 0) {
+          const sourceResult = yield extractSourceResults($, item);
+          if (!sourceResult || !sourceResult.url)
+            return [];
+          rawLinks.push(sourceResult.url);
         }
-        return [];
+        const extracted = (yield Promise.all(rawLinks.map((raw) => extractResolvedLink(raw, meta)))).flat();
+        return extracted.filter((link) => link && link.url && !link.url.includes(".zip")).map((link) => toNuvioStream(link, meta));
       } catch (err) {
         console.log(`[4KHDHub] Item processing error: ${err.message}`);
         return [];

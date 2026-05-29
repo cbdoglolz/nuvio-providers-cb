@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.2 - 2026-05-29
+
+- 4KHDHub provider bumped to `1.0.5-cb3`.
+- Reworked 4KHDHub episode link collection to follow the Cloudstream Phisher provider pattern more closely.
+- Added support for collecting all raw links from each episode item instead of only the first HubCloud/HubDrive button.
+- Added routing for HubDrive, HubCloud, HubCDN, Hblinks, Pixeldrain, and BuzzServer-style links.
+- Added HubCDN base64 `reurl` decoding and BuzzServer redirect handling before returning streams.
+- Kept seek-priority sorting so more likely seekable links still appear first.
+
 ## 1.1.1 - 2026-05-29
 
 - 4KHDHub provider bumped to `1.0.4-cb2`.
