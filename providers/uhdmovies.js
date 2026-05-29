@@ -96,17 +96,25 @@ function extractSize(text) {
 
 function searchByTitle(title, year) {
   return getLatestDomain().then(function(domain) {
-    var query = encodeURIComponent((title + " " + (year || "")).trim());
-    var searchUrl = domain + "/?s=" + query;
-    console.log("[UHDMovies] Search URL: " + searchUrl);
-
-    return fetch(searchUrl, {
-      headers: { "User-Agent": USER_AGENT }
-    })
-      .then(function (response) { return response.text(); })
-      .then(function (html) {
-        console.log("[UHDMovies] Response length: " + html.length + " bytes");
-        return parseSearchResults(html);
+    var runSearch = function(queryText) {
+      var query = encodeURIComponent(queryText.trim());
+      var searchUrl = domain + "/?s=" + query;
+      console.log("[UHDMovies] Search URL: " + searchUrl);
+      return fetch(searchUrl, {
+        headers: { "User-Agent": USER_AGENT }
+      })
+        .then(function (response) { return response.text(); })
+        .then(function (html) {
+          console.log("[UHDMovies] Response length: " + html.length + " bytes");
+          return parseSearchResults(html, domain);
+        });
+    };
+    var titleWithYear = (title + " " + (year || "")).trim();
+    return runSearch(titleWithYear)
+      .then(function(results) {
+        if (results.length > 0 || !year) return results;
+        console.log("[UHDMovies] Retrying search without year");
+        return runSearch(title);
       })
       .catch(function (error) {
         console.error("[UHDMovies] Search failed:", error.message);
@@ -115,7 +123,7 @@ function searchByTitle(title, year) {
   });
 }
 
-function parseSearchResults(html) {
+function parseSearchResults(html, domain) {
   var $ = cheerio.load(html);
   var results = [];
 
@@ -123,9 +131,8 @@ function parseSearchResults(html) {
   $("article.gridlove-post").each(function (_, el) {
     var $el = $(el);
     var titleRaw = $el.find("h1.sanket").text().trim().replace(/^Download\s+/i, "");
-    var titleMatch = titleRaw.match(/^(.*\)\d*)/);
-    var title = titleMatch ? titleMatch[1] : titleRaw;
-    var href = $el.find("div.entry-image > a").attr("href");
+    var title = titleRaw.substring(0, titleRaw.indexOf("(") > -1 ? titleRaw.indexOf("(") : titleRaw.length).replace(/\bSeason\b.*$/i, "").replace(/\bS0\d+\b.*$/i, "").trim() || titleRaw;
+    var href = fixUrl($el.find("div.entry-image > a").attr("href"), domain);
 
     if (href && title) {
       results.push({
@@ -542,7 +549,7 @@ function getMovieLinks(pageUrl) {
           if (sourceLink) {
             links.push({
               sourceName: sourceName,
-              sourceLink: sourceLink
+              sourceLink: fixUrl(sourceLink, getBaseUrl(pageUrl))
             });
           }
         }
@@ -567,48 +574,33 @@ function getTvEpisodeLink(pageUrl, targetSeason, targetEpisode) {
     .then(function (html) {
       var $ = cheerio.load(html);
       var links = [];
-
-      // From Kotlin: p:has(a:contains(Episode)) or div:has(a:contains(Episode))
-      var pTags = $("p:has(a:contains(Episode))");
-      if (pTags.length === 0) {
-        pTags = $("div:has(a:contains(Episode))");
-      }
-
       var currentSeason = 1;
-      pTags.each(function (_, pTag) {
-        var $pTag = $(pTag);
-        var prevPtag = $pTag.prev();
-        var details = prevPtag.text() || "";
-
-        // Extract season from previous element
-        var seasonMatch = details.match(/(?:Season |S0?)(\d+)/i);
+      $("pre, p, a:contains(Episode)").each(function (_, el) {
+        var $el = $(el);
+        var text = $el.text() || "";
+        var seasonMatch = text.match(/(?:season\s*|S)(\d+)/i);
         if (seasonMatch) {
           currentSeason = parseInt(seasonMatch[1]);
         }
-
-        // Check if this is the season we want
-        if (currentSeason === targetSeason) {
-          var aTags = $pTag.find("a:contains(Episode)");
-          aTags.each(function (idx, aTag) {
-            var episodeNum = idx + 1;
-            if (episodeNum === targetEpisode) {
-              var link = $(aTag).attr("href");
-              if (link) {
-                // Extract quality and size from details
-                var qualityMatch = details.match(/(1080p|720p|480p|2160p|4K|\d+0p)/i);
-                var sizeMatch = details.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
-
-                links.push({
-                  sourceLink: link,
-                  quality: qualityMatch ? qualityMatch[1] : "Unknown",
-                  size: sizeMatch ? sizeMatch[1] : null,
-                  details: details
-                });
-              }
-            }
-          });
-        }
-        currentSeason++;
+        if ($el.prop("tagName") !== "A" || !/Episode/i.test(text) || /Zip/i.test(text))
+          return;
+        var episodeMatch = text.match(/Episode\s*0*(\d+)/i);
+        var realEpisode = episodeMatch ? parseInt(episodeMatch[1]) : null;
+        if (currentSeason !== targetSeason || realEpisode !== targetEpisode)
+          return;
+        var link = fixUrl($el.attr("href"), getBaseUrl(pageUrl));
+        if (!link)
+          return;
+        var context = [$el.parent().text(), $el.parent().prev().text(), text].join(" ");
+        var qualityMatch = context.match(/(2160p|1080p|720p|480p|4K|\d{3,4}p)/i);
+        var sizeMatch = context.match(/(\d+(?:\.\d+)?\s*(?:MB|GB))/i);
+        links.push({
+          sourceName: "UHD",
+          sourceLink: link,
+          quality: qualityMatch ? qualityMatch[1] : "Unknown",
+          size: sizeMatch ? sizeMatch[1] : null,
+          details: context
+        });
       });
 
       console.log("[UHDMovies] Found " + links.length + " episode links for S" + targetSeason + "E" + targetEpisode);
@@ -698,7 +690,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
 
             // Bypass hrefli if needed (from Kotlin loadLinks)
             var finalLinkPromise;
-            if (sourceLink.includes("unblockedgames")) {
+            if (sourceLink.toLowerCase().includes("unblockedgames")) {
               finalLinkPromise = bypassHrefli(sourceLink);
             } else {
               finalLinkPromise = Promise.resolve(sourceLink);
@@ -734,7 +726,11 @@ function getStreams(tmdbId, mediaType, season, episode) {
                 title: "UHDMovies " + (linkData.sourceName || linkData.quality || ""),
                 url: finalLink,
                 quality: linkData.quality || "Unknown",
-                size: linkData.size
+                size: linkData.size,
+                headers: {
+                  "User-Agent": USER_AGENT
+                },
+                provider: "uhdmovies"
               }];
             });
           });

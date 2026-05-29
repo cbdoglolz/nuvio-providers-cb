@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3 - 2026-05-29
+
+- UHDMovies provider bumped to `1.2.2-cb2`.
+- Added a title-only search retry when `title + year` finds no UHDMovies results.
+- Reworked TV episode extraction to follow the Cloudstream Phisher provider pattern: scan page elements sequentially, track current season, and parse the real episode number from each `Episode` link.
+- Normalized relative movie/episode links before extraction.
+- Added basic provider metadata and headers to UHDMovies direct fallback streams.
+
 ## 1.1.2 - 2026-05-29
 
 - 4KHDHub provider bumped to `1.0.5-cb3`.
