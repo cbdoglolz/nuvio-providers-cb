@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.20`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.21`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -15,7 +15,7 @@
   - ❓ **UHDMovies** 曾报搜不到 → `1.2.2-cb4` 已加 `Project …` → 短标题回退；本地能出 8 条流，待用户再测
   - ❌ **MovieBlast** 有源不能播 → `1.0.1-cb1` 已修 headers + 去掉 m3u8 只留 mkv，待用户再测
   - ✅ **Vidlink** 能播；`Unknown` 标签 → `1.0.2-cb1` 已去掉
-  - ❌ **NetMirror** 限流（10 分钟「访问过多」），**代码无解**，建议默认关闭或降优先级
+  - ❌ **NetMirror** 限流（10 分钟「访问过多」），**代码无解**；1.1.21 已按用户确认删除
 
 ---
 
@@ -58,11 +58,11 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **AnimePahe** | 1.0.2-cb4 | ⚠️ 待真机复测 | 搜索/MAL 映射加强：TMDB title aliases、Season/Nth Season 回退、验证 8 个 MAL 候选；Kwik 直连失败后走 AnimePahe proxy |
 | **AnimeKai** | 1.1.3-cb5 | ⚠️ 待真机复测 | **能搜到新番、有源**；必须继续修。1.1.15 保留 MegaUp master playlist 作为 Auto fallback，同时保留解析出的清晰度 variant |
 | **Vixsrc / MoviesMod** | Vixsrc 1.0.2-cb2 / MoviesMod 1.0.2-cb1 | ❓ 真机 | 1.1.20 加 `Cloudflare.solve()` 403/503 retry；数据中心 IP 仍可能 403，需真机验证 |
-| **Dooflix** | 1.0.2-cb2 | ❌ 默认关闭 | API key 轮换 401，需用户从 App/源站提供新 key；1.1.19 默认关闭，避免无效搜索 |
-| **VidnestAnime** | 1.0.1-cb1 | ❌ 默认关闭 | 旧代码打 `backend.vidnest.fun`；当前公开 Vidnest 是 `vidnest.fun/anime/[ANILIST_ID]/[EP]/[SUB_OR_DUB]` embed 形态，不是旧 JSON 后端，需重写 |
-| **NetMirror** | 1.0.3-cb1 | ❌ 已默认关闭 | 源站限流，10 分钟占位视频 |
+| **Dooflix** | removed in 1.1.21 | ❌ 已删除 | API key 轮换 401；用户确认后从 manifest/provider/src 删除 |
+| **VidnestAnime** | removed in 1.1.21 | ❌ 已删除 | 旧 `backend.vidnest.fun` 后端失效；用户确认后从 manifest/provider 删除 |
+| **NetMirror** | removed in 1.1.21 | ❌ 已删除 | 源站限流，10 分钟占位视频；用户确认后从 manifest/provider/src 删除 |
 | **DVDPlay** | 1.0.3-cb1 | ⚠️ 匹配更安全 | 印度站；1.1.17 加年份硬过滤/惩罚，避免 Oppenheimer → Kara 2026 这类错片 |
-| **Cinemacity** | 1.0.1-cb1 | ❌ 默认关闭 | 依赖 stale site cookies，本地 0 流；1.1.19 默认关闭，等新 cookie/提取路径 |
+| **Cinemacity** | removed in 1.1.21 | ❌ 已删除 | 依赖 stale site cookies，本地 0 流；用户确认后从 manifest/provider/src 删除 |
 
 ### 已评估、未 port 的来源
 
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.20**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.21**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -137,9 +137,16 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ### VidnestAnime
 
+- 1.1.21：用户确认后已删除 `providers/vidnest-anime.js` 和 manifest entry
 - 旧 provider 使用 `https://backend.vidnest.fun/...` JSON API，已失效
 - 当前公开 Vidnest 文档是 iframe embed：`https://vidnest.fun/anime/[ANILIST_ID]/[EPISODE]/[SUB_OR_DUB]`
 - Nuvio provider 需要直链，不应把 iframe URL 伪装成视频流；因此 1.1.16 默认关闭，后续要么抓 Next/chunk API，要么放弃
+
+### 已删除 Provider（1.1.21）
+
+- 删除 manifest entry + `providers/*.js`：`netmirror`, `vidnest-anime`, `dooflix`, `cinemacity`, `videasy`
+- 额外删除源码目录：`src/netmirror/`, `src/dooflix/`, `src/cinemacity/`
+- 空目录如果仍存在只是本地文件系统残留，Git 不跟踪
 
 ### Nuvio 缓存
 
@@ -170,7 +177,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 4. **MovieBox TV**：若仍 0 流，需要针对具体 `resourceLink` 域名写站点 extractor
 5. **VidnestAnime**：只有在愿意重写 embed/API 提取时再启用
 6. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
-7. **Dooflix / CinemaCity**：默认关闭；等用户提供新 key/cookie 或决定重写
+7. **Dooflix / CinemaCity / NetMirror / VidnestAnime / VIDEASY**：已从仓库删除；需要时从 Git 历史恢复并重写
 8. **4KHDHub seek**：用户已放弃，除非主动回来
 
 ---

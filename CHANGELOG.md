@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.21 - 2026-05-30
+
+- Removed disabled/dead providers from the subscription manifest and provider files after user confirmation: NetMirror, VidnestAnime, DooFlix, CinemaCity, and VIDEASY.
+- Also removed matching source folders for NetMirror, DooFlix, and CinemaCity so they are not accidentally rebuilt later.
+- The repo now exposes only 21 provider entries in `manifest.json`; deleted providers can be restored from Git history if a new key/backend/cookie path becomes available.
+
 ## 1.1.20 - 2026-05-30
 
 - **Vixsrc `1.0.2-cb2`**: Added `Cloudflare.solve()` retry in the request helper for 403/503 responses, so real devices can solve challenges instead of returning zero streams immediately.

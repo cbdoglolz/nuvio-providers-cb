@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -121,27 +121,6 @@
       ]
     },
     {
-      "id": "netmirror",
-      "name": "NetMirror",
-      "description": "Streaming links from NetMirror. Disabled in cbrepo: source rate-limits heavily and may show an access-limit placeholder.",
-      "version": "1.0.3-cb1",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/netmirror.js",
-      "enabled": false,
-      "logo": "https://net22.cc/favicon.ico",
-      "contentLanguage": [
-        "en"
-      ],
-      "disabledPlatforms": [
-        "ios"
-      ],
-      "supportsExternalPlayer": false
-    },
-    {
       "id": "streamflix",
       "name": "StreamFlix",
       "description": "Direct links via StreamFlix API",
@@ -248,35 +227,6 @@
       ]
     },
     {
-      "id": "videasy",
-      "name": "VIDEASY",
-      "description": "VideoEasy streaming with multiple server support and languages",
-      "version": "1.0.0",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/videasy.js",
-      "enabled": false,
-      "limited": true,
-      "formats": [
-        "m3u8",
-        "mp4",
-        "mkv"
-      ],
-      "logo": "https://www.videasy.net/logo.png",
-      "contentLanguage": [
-        "en",
-        "de",
-        "it",
-        "fr",
-        "hi",
-        "es",
-        "pt"
-      ]
-    },
-    {
       "id": "mallumv",
       "name": "MalluMV",
       "description": "MalluMV direct links with support for Tamil, Telugu, Hindi, Malayalam, and Kannada movies",
@@ -343,30 +293,6 @@
       ]
     },
     {
-      "id": "vidnest-anime",
-      "name": "VidnestAnime",
-      "description": "Vidnest anime legacy backend. Disabled in cbrepo because the old backend is gone; current Vidnest is embed-only and needs a rewrite.",
-      "version": "1.0.1-cb1",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/vidnest-anime.js",
-      "enabled": false,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://vidnest.fun/favicon.ico",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ja"
-      ],
-      "limited": true,
-      "notes": "Automatically maps TMDB IDs to AniList. Supports sub/dub."
-    },
-    {
       "id": "cinevibe",
       "name": "Cinevibe",
       "description": "Cinevibe (Movies)",
@@ -384,32 +310,6 @@
       "logo": "https://www.google.com/s2/favicons?domain=cinevibe.online&sz=128",
       "contentLanguage": [
         "en"
-      ]
-    },
-    {
-      "id": "cinemacity",
-      "name": "CinemaCity",
-      "description": "CinemaCity (Multi-Language). Disabled in cbrepo: current provider depends on stale site cookies and returns no streams.",
-      "version": "1.0.1-cb1",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/cinemacity.js",
-      "enabled": false,
-      "formats": [
-        "mp4"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=cinema-city.pl&sz=128",
-      "contentLanguage": [
-        "en",
-        "hi",
-        "ta",
-        "te",
-        "id",
-        "pl",
-        "ar"
       ]
     },
     {
@@ -502,27 +402,6 @@
         "hi",
         "ta",
         "te"
-      ]
-    },
-    {
-      "id": "dooflix",
-      "name": "DooFlix",
-      "description": "Fast streaming provider with direct TMDB integration. Disabled in cbrepo until a current DooFlix API key is available.",
-      "version": "1.0.2-cb2",
-      "author": "Nuvio Team",
-      "supportedTypes": [
-        "movie",
-        "tv"
-      ],
-      "filename": "providers/dooflix.js",
-      "enabled": false,
-      "formats": [
-        "m3u8"
-      ],
-      "logo": "https://www.google.com/s2/favicons?domain=dooflix.org&sz=128",
-      "contentLanguage": [
-        "en",
-        "hi"
       ]
     },
     {
