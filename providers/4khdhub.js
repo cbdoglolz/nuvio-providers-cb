@@ -191,8 +191,12 @@ function normalizeSourceName(source) {
 }
 function getSeekScore(source, url) {
   const text = `${source || ""} ${url || ""}`.toLowerCase();
-  if (text.includes("pixeldrain") || text.includes("pixelserver") || text.includes("pixel server"))
+  if (text.includes("workers.dev/?id=") || text.includes(".fans/?id=") || text.includes("dl.php?link="))
+    return 15;
+  if (text.includes("googleusercontent") || text.includes("r2.cloudflarestorage") || text.includes("r2.dev"))
     return 100;
+  if (text.includes("pixeldrain") || text.includes("pixelserver") || text.includes("pixel server"))
+    return 95;
   if (text.includes("s3 server") || text.includes("mega server"))
     return 70;
   if (text.includes("pdl"))
@@ -451,6 +455,68 @@ function resolveBuzzServer(buzzUrl, baseMeta) {
     }
   });
 }
+// HubCloud download buttons often point at intermediate redirect endpoints
+// (gamerxyt/360news4u dl.php wrappers, *.workers.dev/?id=, pixeldrain /u/).
+// Those endpoints ignore HTTP Range requests, so seeking restarts playback from
+// the beginning. Resolve them to the real direct file URL (googleusercontent /
+// R2 / pixeldrain api) which honors Range and is therefore seekable.
+function resolveFinalLink(rawUrl, depth) {
+  return __async(this, null, function* () {
+    if (!rawUrl)
+      return rawUrl;
+    let url = rawUrl;
+    if (depth === void 0)
+      depth = 0;
+    if (depth > 5)
+      return url;
+    const pdMatch = url.match(/pixeldrain\.(?:net|dev)\/u\/([a-zA-Z0-9]+)/);
+    if (pdMatch && pdMatch[1]) {
+      return `https://pixeldrain.net/api/file/${pdMatch[1]}?download`;
+    }
+    const dlMatch = url.match(/(?:gamerxyt\.com|360news4u\.net)\/dl\.php\?link=([^&\s]+)/);
+    if (dlMatch && dlMatch[1]) {
+      try {
+        return decodeURIComponent(dlMatch[1]);
+      } catch (e) {
+        return dlMatch[1];
+      }
+    }
+    if (/video-downloads\.googleusercontent\.com|r2\.cloudflarestorage\.com|\.r2\.dev/i.test(url)) {
+      return url;
+    }
+    if (/workers\.dev\/.+\.(?:mkv|mp4|avi|m4v)/i.test(url) && !/workers\.dev\/\?id=/i.test(url)) {
+      return url;
+    }
+    if (/\.workers\.dev\/\?id=|\.fans\/\?id=/i.test(url)) {
+      try {
+        const response = yield fetch(url, {
+          headers: {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          },
+          redirect: "manual"
+        });
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get("location");
+          if (location)
+            return yield resolveFinalLink(location, depth + 1);
+        }
+        if (response.status === 200) {
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.indexOf("video/") !== -1)
+            return url;
+          const text = yield response.text();
+          const directMatch = text.match(/(https?:\/\/[^"'\s]+\.r2\.cloudflarestorage\.com[^"'\s]*)/) || text.match(/(https?:\/\/[^"'\s]+\/[^"'\s]*\.(?:mkv|mp4|avi|m4v)[^"'\s]*)/i);
+          if (directMatch)
+            return directMatch[1];
+        }
+      } catch (e) {
+        console.log(`[4KHDHub] resolveFinalLink failed: ${e.message}`);
+      }
+    }
+    return url;
+  });
+}
 function expandNestedLinks(links, baseMeta) {
   return __async(this, null, function* () {
     const expanded = [];
@@ -580,7 +646,14 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
         });
       }
     });
-    return results;
+    const resolved = yield Promise.all(results.map((r) => __async(this, null, function* () {
+      const src = String(r.source || "").toLowerCase();
+      if (src.includes("buzzserver") || src.includes("hubcdn"))
+        return r;
+      const finalUrl = yield resolveFinalLink(r.url);
+      return __spreadProps(__spreadValues({}, r), { url: finalUrl });
+    })));
+    return resolved;
   });
 }
 function toNuvioStream(link, sourceMeta) {

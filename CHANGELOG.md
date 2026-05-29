@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.4 - 2026-05-29
+
+- 4KHDHub provider bumped to `1.0.6-cb4`.
+- Fixed the "fast-forward jumps back to start" (no seek) issue by resolving HubCloud button links to their real final direct URLs before returning them, mirroring the working DVDPlay HubCloud extractor.
+- Added `resolveFinalLink`: unwraps `gamerxyt.com/dl.php?link=` and `360news4u.net/dl.php?link=` wrappers, normalizes Pixeldrain `/u/<id>` to `api/file/<id>?download`, follows `*.workers.dev/?id=` and `*.fans/?id=` redirects (up to 5 hops), and keeps already-direct `googleusercontent` / `r2.cloudflarestorage.com` / `r2.dev` links as-is.
+- BuzzServer and HUBCDN links are left untouched so their existing dedicated resolvers still run.
+- Reworked seek scoring: resolved direct file hosts (googleusercontent / R2) rank highest, Pixeldrain next, and any still-unresolved intermediate redirect endpoints (`workers.dev/?id=`, `dl.php?link=`) are pushed to the bottom and flagged `No Seek?`.
+
 ## 1.1.3 - 2026-05-29
 
 - UHDMovies provider bumped to `1.2.2-cb2`.
