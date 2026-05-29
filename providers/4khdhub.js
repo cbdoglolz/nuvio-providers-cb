@@ -186,6 +186,29 @@ function formatBytes(val) {
     i = 0;
   return parseFloat((val / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
+function normalizeSourceName(source) {
+  return String(source || "Direct").replace(/\s+/g, " ").trim();
+}
+function getSeekScore(source, url) {
+  const text = `${source || ""} ${url || ""}`.toLowerCase();
+  if (text.includes("pixeldrain") || text.includes("pixelserver") || text.includes("pixel server"))
+    return 100;
+  if (text.includes("s3 server") || text.includes("mega server"))
+    return 70;
+  if (text.includes("pdl"))
+    return 45;
+  if (text.includes("fsl") || text.includes("download file"))
+    return 30;
+  return 50;
+}
+function getSeekHint(source, url) {
+  const score = getSeekScore(source, url);
+  if (score >= 90)
+    return "Seek OK";
+  if (score >= 60)
+    return "Seek Maybe";
+  return "No Seek?";
+}
 
 // src/4khdhub/search.js
 var cheerio = require("cheerio-without-node-native");
@@ -422,16 +445,27 @@ function getStreams(tmdbId, type, season, episode) {
         if (sourceResult && sourceResult.url) {
           console.log(`[4KHDHub] Extracting from HubCloud: ${sourceResult.url}`);
           const extractedLinks = yield extractHubCloud(sourceResult.url, sourceResult.meta);
-          return extractedLinks.map((link) => ({
-            name: `4KHDHub - ${link.source}${sourceResult.meta.height ? ` ${sourceResult.meta.height}p` : ""}`,
-            title: `${link.meta.title}
-${formatBytes(link.meta.bytes || 0)}`,
-            url: link.url,
-            quality: sourceResult.meta.height ? `${sourceResult.meta.height}p` : void 0,
-            behaviorHints: {
-              bingeGroup: `4khdhub-${link.source}`
-            }
-          }));
+          return extractedLinks.map((link) => {
+            const source = normalizeSourceName(link.source);
+            const seekHint = getSeekHint(source, link.url);
+            const seekScore = getSeekScore(source, link.url);
+            return {
+              name: `4KHDHub - ${source} ${seekHint}${sourceResult.meta.height ? ` ${sourceResult.meta.height}p` : ""}`,
+              title: `${link.meta.title}
+${source} | ${seekHint} | ${formatBytes(link.meta.bytes || 0)}`,
+              url: link.url,
+              quality: sourceResult.meta.height ? `${sourceResult.meta.height}p` : void 0,
+              headers: {
+                "User-Agent": USER_AGENT,
+                "Referer": sourceResult.url
+              },
+              provider: "4khdhub",
+              behaviorHints: {
+                bingeGroup: `4khdhub-${source}`,
+                seekScore
+              }
+            };
+          });
         }
         return [];
       } catch (err) {
@@ -440,7 +474,11 @@ ${formatBytes(link.meta.bytes || 0)}`,
       }
     }));
     const results = yield Promise.all(streamPromises);
-    return results.reduce((acc, val) => acc.concat(val), []);
+    return results.reduce((acc, val) => acc.concat(val), []).sort((a, b) => {
+      const aScore = a.behaviorHints && a.behaviorHints.seekScore || 0;
+      const bScore = b.behaviorHints && b.behaviorHints.seekScore || 0;
+      return bScore - aScore;
+    });
   });
 }
 module.exports = { getStreams };

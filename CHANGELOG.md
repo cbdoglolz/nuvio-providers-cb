@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 - 2026-05-29
+
+- 4KHDHub provider bumped to `1.0.4-cb2`.
+- Added source labels that show whether a 4KHDHub link is more likely to support seeking: `Seek OK`, `Seek Maybe`, or `No Seek?`.
+- Prioritized PixelServer/PixelDrain-style links ahead of FSL/PDL/download-button links because they are more likely to behave like seekable file streams on mobile players.
+- Added 4KHDHub stream headers and provider metadata so returned entries are easier to identify in Nuvio.
+
 ## 1.1.0 - 2026-05-29
 
 - AnimePahe provider bumped to `1.0.1-cb1`.
