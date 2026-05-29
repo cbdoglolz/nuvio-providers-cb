@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.13 - 2026-05-30
+
+- **AnimeKai `1.1.3-cb3`**: Re-enabled by default because it is currently the only provider that reliably finds new seasonal anime.
+- Changed MegaUp HLS handling so `/list,*.m3u8` playlists are fetched and parsed by the provider instead of being returned directly to Nuvio as comma-style master playlists.
+- Normalized MegaUp playback headers to `Referer: https://megaup.cc/` / matching `Origin`, and URL-encodes comma path segments when returning playable HLS URLs.
+- Kept NetMirror disabled by default because its source-side rate limit is not fixable in provider code.
+
 ## 1.1.12 - 2026-05-30
 
 - **AnimeKai `1.1.2-cb2`**: Disabled by default. It can find anime and MegaUp-backed sources, but real-device playback still fails in Nuvio because the HLS flow needs per-segment MegaUp headers and has short-lived playlist URLs.

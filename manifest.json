@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -25,15 +25,15 @@
     {
       "id": "animekai",
       "name": "AnimeKai",
-      "description": "AnimeKai TV episodes via AnimeKai servers. Disabled in cbrepo: MegaUp HLS streams currently do not play reliably in Nuvio.",
-      "version": "1.1.2-cb2",
+      "description": "AnimeKai TV episodes via AnimeKai servers. MegaUp HLS handling patched for Nuvio playback.",
+      "version": "1.1.3-cb3",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
         "tv"
       ],
       "filename": "providers/animekai.js",
-      "enabled": false,
+      "enabled": true,
       "limited": true,
       "logo": "https://animekai.to/assets/uploads/37585a39fe8c8d8fafaa2c7bfbf5374ecac859ea6a0288a6da2c61f5.png",
       "contentLanguage": [

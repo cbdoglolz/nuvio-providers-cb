@@ -402,26 +402,34 @@ function isMegaDirectPlaylist(url) {
     return !!(url && /\/list,[^/]+\.m3u8/i.test(url));
 }
 
-function resolveM3U8(url, serverType, serverName, streamReferer) {
-    if (isMegaDirectPlaylist(url)) {
-        return Promise.resolve({
-            success: true,
-            streams: [{
-                url: url,
-                quality: extractQualityFromUrl(url),
-                serverType: serverType,
-                serverName: serverName,
-                referer: streamReferer
-            }]
-        });
-    }
+function normalizeMegaReferer(url, streamReferer) {
+    var ref = streamReferer || 'https://megaup.cc/';
+    try {
+        var host = new URL(url).host.toLowerCase();
+        if (host.indexOf('megaup') !== -1) return 'https://megaup.cc/';
+    } catch (e) { }
+    return ref;
+}
 
+function normalizePlayableUrl(url) {
+    if (!url) return url;
+    try {
+        var u = new URL(url);
+        u.pathname = u.pathname.replace(/,/g, '%2C');
+        return u.toString();
+    } catch (e) {
+        return url.replace(/,/g, '%2C');
+    }
+}
+
+function resolveM3U8(url, serverType, serverName, streamReferer) {
+    var effectiveReferer = normalizeMegaReferer(url, streamReferer);
     var streamHeaders = Object.assign({}, HEADERS, {
         'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/octet-stream,*/*'
     });
-    if (streamReferer) {
-        streamHeaders['Referer'] = streamReferer;
-        try { streamHeaders['Origin'] = new URL(streamReferer).origin; } catch (e) { }
+    if (effectiveReferer) {
+        streamHeaders['Referer'] = effectiveReferer;
+        try { streamHeaders['Origin'] = new URL(effectiveReferer).origin; } catch (e) { }
     }
 
     return fetchRequest(url, {
@@ -435,18 +443,18 @@ function resolveM3U8(url, serverType, serverName, streamReferer) {
                 var out = [];
                 for (var i = 0; i < variants.length; i++) {
                     var q = qualityFromResolutionOrBandwidth(variants[i]);
-                    out.push({ url: variants[i].url, quality: q, serverType: serverType, serverName: serverName, referer: streamReferer });
+                    out.push({ url: normalizePlayableUrl(variants[i].url), quality: q, serverType: serverType, serverName: serverName, referer: effectiveReferer });
                 }
                 var order = { '4K': 7, '2160p': 7, '1440p': 6, '1080p': 5, '720p': 4, '480p': 3, '360p': 2, '240p': 1, 'Unknown': 0 };
                 out.sort(function (a, b) { return (order[b.quality] || 0) - (order[a.quality] || 0); });
                 return { success: true, streams: out };
             }
             if (content.indexOf('#EXTINF:') !== -1) {
-                return { success: true, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: streamReferer }] };
+                return { success: true, streams: [{ url: normalizePlayableUrl(url), quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: effectiveReferer }] };
             }
             throw new Error('Invalid M3U8');
         })
-        .catch(function () { return { success: false, streams: [{ url: url, quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: streamReferer }] }; });
+        .catch(function () { return { success: false, streams: [{ url: normalizePlayableUrl(url), quality: extractQualityFromUrl(url), serverType: serverType, serverName: serverName, referer: effectiveReferer }] }; });
 }
 
 function resolveMultipleM3U8(m3u8Links) {
@@ -469,6 +477,7 @@ function buildStreamHeaders(streamReferer) {
         'Accept': 'video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'identity',
+        'Connection': 'keep-alive',
         'Referer': ref
     };
     try { headers['Origin'] = new URL(ref).origin; } catch (e) { }

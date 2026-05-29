@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.12`**，分支 **`main`**  
+> 最后更新：**2026-05-30**，repo **`1.1.13`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -8,7 +8,7 @@
 ## 1. 项目目标与用户偏好
 
 - Fork `nuvio-providers`，参考 Cloudstream phisher：`https://github.com/phisher98/cloudstream-extensions-phisher`
-- 用户优先：**动画**、**中文内容**；但动画专用源（AnimePahe/AnimeKai）真机仍失败，已**暂停**
+- 用户优先：**动画**、**中文内容**；AnimeKai 是当前唯一能搜到最新新番的来源，必须保留并继续修
 - 电影侧：**HDHub4u / UHDMovies / Vidlink** 是当前最靠谱组合
 - 用户真机反馈（Project Hail Mary / TMDB `687163`）：
   - ✅ **HDHub4u** 能用
@@ -56,7 +56,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **YFlix** | 1.1.2 | ⚠️ 待验证 | 本地有流，enc-dec 路线 |
 | **4KHDHub** | 1.0.8-cb6 | ⚠️ seek 未解 | HubDrive→R2 直链已做；用户放弃继续追 seek；按清晰度排序 |
 | **AnimePahe** | 1.0.2-cb3 | ❌ 跳过 | 搜索/MAL 映射 OK；Kwik 403，加了 CF.solve 仍真机失败 |
-| **AnimeKai** | 1.1.2-cb2 | ❌ 已默认关闭 | **能搜到新番、有源、全不能播** — MegaUp HLS + Referer 每分片 + URL 含逗号；Nuvio 播放器栈不适配（见 §6） |
+| **AnimeKai** | 1.1.3-cb3 | ⚠️ 待真机复测 | **能搜到新番、有源**；已重新开启。1.1.13 改为 provider 解析 MegaUp `list,*.m3u8`，并编码逗号路径、统一 MegaUp Referer |
 | **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
 | **Dooflix** | 1.0.1-cb1 | ❌ 阻塞 | API key 轮换 401，需用户从 App 提供新 key |
 | **VidnestAnime** | 1.0.0 | ❌ 上游挂 | backend DNS 没了 / first 530 |
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.11**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.13**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -105,7 +105,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 2. **每个 HLS 分片**都要 `Referer: https://megaup.cc/`；Nuvio 可能只对 manifest 带 headers
 3. m3u8 路径含 **逗号**：`.../list,xxx.m3u8`，ExoPlayer 易解析失败
 4. 链接 **短时效** token
-5. 可选方向：m3u8 代理（类似 Vidnest proxy）、或 manifest 里 **默认 disabled** AnimeKai
+5. 1.1.13 已尝试：provider 先解析 MegaUp master playlist，返回 variant URL；若仍失败，下一步才考虑 m3u8 代理（类似 Vidnest proxy）
 
 ### AnimePahe
 
@@ -152,13 +152,14 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 8. Codex 建议下一步（按优先级）
 
-1. **等用户反馈** 1.1.12：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
-2. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
-3. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
-4. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
-5. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
-6. **Dooflix**：等用户提供新 API key
-7. **4KHDHub seek**：用户已放弃，除非主动回来
+1. **等用户反馈** 1.1.13：AnimeKai 新番是否能播放；若仍失败，考虑 m3u8 proxy
+2. **等用户反馈**：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
+3. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
+4. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
+5. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
+6. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
+7. **Dooflix**：等用户提供新 API key
+8. **4KHDHub seek**：用户已放弃，除非主动回来
 
 ---
 
