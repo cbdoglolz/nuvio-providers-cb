@@ -1,6 +1,6 @@
 /**
  * animepahe - Built from src/animepahe/
- * Generated: 2026-04-25T11:40:26.173Z
+ * Generated: 2026-05-29T16:30:25.208Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -80,7 +80,6 @@ var import_cheerio_without_node_native = __toESM(require("cheerio-without-node-n
 // src/animepahe/constants.js
 var MAIN_URL = "https://animepahe.pw";
 var PROXY_URL = "https://animepaheproxy.phisheranimepahe.workers.dev/?url=";
-var MYAPI_URL = "https://myapi-psi-wheat.vercel.app";
 var HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
   "Cookie": "__ddg2_=1234567890",
@@ -154,98 +153,6 @@ function searchAnime(query) {
 function extractQuality(text) {
   const match = text.match(/(\d{3,4}p)/);
   return match ? match[1] : "720p";
-}
-function normalizeAnimeTitle(title) {
-  return String(title || "").toLowerCase().replace(/\b(season|part|cour|tv|the|a|an)\b/g, " ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-}
-function fetchTmdbTitle(tmdbId, mediaType, season) {
-  return __async(this, null, function* () {
-    const endpoint = mediaType === "tv" ? "tv" : "movie";
-    const url = `https://api.themoviedb.org/3/${endpoint}/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49`;
-    const res = yield fetch(url);
-    const data = yield res.json();
-    const baseTitle = mediaType === "tv" ? data.name || data.original_name : data.title || data.original_title;
-    const year = mediaType === "tv" ? (data.first_air_date || "").substring(0, 4) : (data.release_date || "").substring(0, 4);
-    const candidates = [baseTitle];
-    if (mediaType === "tv" && season && season > 1) {
-      candidates.unshift(`${baseTitle} Season ${season}`);
-      candidates.push(`${baseTitle} ${season}`);
-    }
-    return { title: baseTitle, year, candidates: candidates.filter(Boolean) };
-  });
-}
-function fetchJsonDirect(url) {
-  return __async(this, null, function* () {
-    const res = yield fetch(url, {
-      headers: {
-        "User-Agent": HEADERS["User-Agent"],
-        "Accept": "application/json,*/*"
-      }
-    });
-    if (!res.ok)
-      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-    return yield res.json();
-  });
-}
-function getAnimePaheMyApiStreams(tmdbId, mediaType, season, episode) {
-  return __async(this, null, function* () {
-    const tmdb = yield fetchTmdbTitle(tmdbId, mediaType, season);
-    for (const query of tmdb.candidates) {
-      const searchResults = yield fetchJsonDirect(`${MYAPI_URL}/search?q=${encodeURIComponent(query)}`);
-      if (!Array.isArray(searchResults) || searchResults.length === 0)
-        continue;
-      const normalizedQuery = normalizeAnimeTitle(query);
-      let selected = searchResults.find((item) => normalizeAnimeTitle(item.title) === normalizedQuery);
-      if (!selected) {
-        selected = searchResults.find((item) => normalizeAnimeTitle(item.title).includes(normalizedQuery) || normalizedQuery.includes(normalizeAnimeTitle(item.title)));
-      }
-      if (!selected)
-        selected = searchResults[0];
-      if (!selected || !selected.session)
-        continue;
-      const animeData = yield fetchJsonDirect(`${MYAPI_URL}/anime?session=${encodeURIComponent(selected.session)}`);
-      const episodes = animeData.episodes || [];
-      const wantedEpisode = Number(episode || 1);
-      const ep = episodes.find((item) => Number(item.number) === wantedEpisode) || episodes[wantedEpisode - 1];
-      if (!ep || !ep.session)
-        continue;
-      const sources = yield fetchJsonDirect(`${MYAPI_URL}/sources?anime_session=${encodeURIComponent(selected.session)}&episode_session=${encodeURIComponent(ep.session)}`);
-      if (!Array.isArray(sources) || sources.length === 0)
-        continue;
-      const streams = [];
-      for (const source of sources) {
-        if (!source || !source.url)
-          continue;
-        let streamUrl = source.url;
-        let streamHeaders = {
-          "Referer": "https://kwik.cx/",
-          "Origin": "https://kwik.cx",
-          "User-Agent": HEADERS["User-Agent"]
-        };
-        try {
-          const resolved = yield fetchJsonDirect(`${MYAPI_URL}/m3u8?url=${encodeURIComponent(source.url)}`);
-          if (resolved.proxy_url) {
-            streamUrl = resolved.proxy_url.startsWith("http") ? resolved.proxy_url : `${MYAPI_URL}${resolved.proxy_url}`;
-          } else if (resolved.m3u8) {
-            streamUrl = resolved.m3u8;
-          }
-          streamHeaders = resolved.headers || streamHeaders;
-        } catch (e) {
-        }
-        streams.push({
-          name: `AnimePahe (${source.quality || "Auto"} ${source.audio === "eng" ? "Dub" : "Sub"})`,
-          title: `${selected.title || tmdb.title} - Episode ${wantedEpisode}`,
-          url: streamUrl,
-          quality: source.quality || "Auto",
-          headers: streamHeaders,
-          provider: "animepahe"
-        });
-      }
-      if (streams.length > 0)
-        return streams;
-    }
-    return [];
-  });
 }
 
 // src/animepahe/extractors.js
@@ -321,9 +228,32 @@ function extractKwik(url) {
 }
 
 // src/animepahe/index.js
+function normalizeTitle(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function pickBestMatch(list, title, preferMovie) {
+  if (!Array.isArray(list) || list.length === 0)
+    return null;
+  const want = normalizeTitle(title);
+  if (!want)
+    return null;
+  let candidates = list;
+  if (preferMovie) {
+    const movies = list.filter((x) => String(x.type || "").toLowerCase() === "movie");
+    if (movies.length)
+      candidates = movies;
+  }
+  let m = candidates.find((x) => normalizeTitle(x.title) === want);
+  if (m)
+    return m.session;
+  m = candidates.find((x) => {
+    const t = normalizeTitle(x.title);
+    return t && (t.includes(want) || want.includes(t));
+  });
+  return m ? m.session : null;
+}
 function getStreams(tmdbId, mediaType, season, episode) {
   return __async(this, null, function* () {
-    const fallbackStreams = () => getAnimePaheMyApiStreams(tmdbId, mediaType, season, episode);
     try {
       let animeSession = null;
       let animeTitle = "";
@@ -332,15 +262,15 @@ function getStreams(tmdbId, mediaType, season, episode) {
       if (mediaType === "tv") {
         const imdbId = yield getImdbId(tmdbId, mediaType);
         if (!imdbId)
-          return yield fallbackStreams();
+          return [];
         const mapping = yield resolveMapping(imdbId, season, episode);
         if (!mapping || !mapping.mal_id)
-          return yield fallbackStreams();
+          return [];
         targetMalId = mapping.mal_id;
         mappedEp = mapping.mal_episode || episode;
         animeTitle = yield getMalTitle(targetMalId);
         if (!animeTitle)
-          return yield fallbackStreams();
+          return [];
         const searchResults = yield searchAnime(animeTitle);
         if (searchResults.data && searchResults.data.length > 0) {
           for (let i = 0; i < Math.min(searchResults.data.length, 3); i++) {
@@ -351,29 +281,32 @@ function getStreams(tmdbId, mediaType, season, episode) {
               break;
             }
           }
+          if (!animeSession) {
+            animeSession = pickBestMatch(searchResults.data, animeTitle, false) || searchResults.data[0].session;
+          }
         }
       } else {
         const tmdbUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49`;
         const tmdbRes = yield fetch(tmdbUrl);
         const tmdbData = yield tmdbRes.json();
         animeTitle = tmdbData.title || tmdbData.original_title;
+        const originalTitle = tmdbData.original_title;
         mappedEp = 1;
         if (!animeTitle)
-          return yield fallbackStreams();
+          return [];
         const searchResults = yield searchAnime(animeTitle);
-        if (searchResults.data && searchResults.data.length > 0) {
-          const firstResult = searchResults.data[0];
-          if (firstResult.title.toLowerCase() === animeTitle.toLowerCase()) {
-            animeSession = firstResult.session;
-          }
+        animeSession = pickBestMatch(searchResults.data, animeTitle, true) || pickBestMatch(searchResults.data, originalTitle, true);
+        if (!animeSession && originalTitle && originalTitle !== animeTitle) {
+          const altResults = yield searchAnime(originalTitle);
+          animeSession = pickBestMatch(altResults.data, originalTitle, true) || pickBestMatch(altResults.data, animeTitle, true);
         }
       }
       if (!animeSession)
-        return yield fallbackStreams();
+        return [];
       const firstPageUrl = `/api?m=release&id=${animeSession}&sort=episode_asc&page=1`;
       const firstPageData = yield fetchJson(firstPageUrl);
       if (!firstPageData.data || firstPageData.data.length === 0)
-        return yield fallbackStreams();
+        return [];
       const paheEpStart = Math.floor(firstPageData.data[0].episode);
       const perPage = firstPageData.per_page || 30;
       const targetPaheEp = paheEpStart - 1 + mappedEp;
@@ -392,7 +325,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
           episodeSession = fallbackEp.session;
       }
       if (!episodeSession)
-        return yield fallbackStreams();
+        return [];
       const playUrl = `/play/${animeSession}/${episodeSession}`;
       const playHtml = yield fetchText(playUrl);
       const $ = import_cheerio_without_node_native.default.load(playHtml);
@@ -422,15 +355,9 @@ function getStreams(tmdbId, mediaType, season, episode) {
       });
       yield Promise.all(promises);
       const qualityOrder = { "1080p": 3, "720p": 2, "360p": 1 };
-      const sortedStreams = streams.sort((a, b) => (qualityOrder[b.quality] || 0) - (qualityOrder[a.quality] || 0));
-      return sortedStreams.length > 0 ? sortedStreams : yield fallbackStreams();
+      return streams.sort((a, b) => (qualityOrder[b.quality] || 0) - (qualityOrder[a.quality] || 0));
     } catch (error) {
-      try {
-        return yield fallbackStreams();
-      } catch (fallbackError) {
-        console.error("[AnimePahe] MyAPI fallback failed:", fallbackError.message);
-        return [];
-      }
+      return [];
     }
   });
 }

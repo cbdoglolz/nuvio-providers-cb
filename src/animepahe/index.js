@@ -3,6 +3,34 @@ import { fetchJson, fetchText, searchAnime, extractQuality, getImdbId, resolveMa
 import { extractKwik } from './extractors.js';
 import { MAIN_URL } from './constants.js';
 
+function normalizeTitle(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// Pick the best AnimePahe search hit for a wanted title. AnimePahe titles
+// rarely match TMDB titles exactly (e.g. "Demon Slayer: ... Infinity Castle"
+// vs "Kimetsu no Yaiba ..."), so exact-only matching was missing almost
+// everything. Try exact-normalized, then substring either way. For movies we
+// prefer Movie-type entries and do NOT blindly fall back (wrong movie is worse
+// than none); callers handle the no-match case.
+function pickBestMatch(list, title, preferMovie) {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    const want = normalizeTitle(title);
+    if (!want) return null;
+    let candidates = list;
+    if (preferMovie) {
+        const movies = list.filter((x) => String(x.type || '').toLowerCase() === 'movie');
+        if (movies.length) candidates = movies;
+    }
+    let m = candidates.find((x) => normalizeTitle(x.title) === want);
+    if (m) return m.session;
+    m = candidates.find((x) => {
+        const t = normalizeTitle(x.title);
+        return t && (t.includes(want) || want.includes(t));
+    });
+    return m ? m.session : null;
+}
+
 async function getStreams(tmdbId, mediaType, season, episode) {
     try {
         let animeSession = null;
@@ -26,8 +54,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
             const searchResults = await searchAnime(animeTitle);
             if (searchResults.data && searchResults.data.length > 0) {
-                // VERIFY each candidate by checking for the MAL ID on its page
-                // We check first 3 candidates for efficiency (usually first is correct)
+                // VERIFY each candidate by checking for the MAL ID on its page.
+                // Check first 3 candidates for efficiency (usually first is correct).
                 for (let i = 0; i < Math.min(searchResults.data.length, 3); i++) {
                     const item = searchResults.data[i];
                     const pageHtml = await fetchText(`/anime/${item.session}`);
@@ -36,23 +64,34 @@ async function getStreams(tmdbId, mediaType, season, episode) {
                         break;
                     }
                 }
+                // Fallback: if MAL-id verification did not confirm any candidate
+                // (page layout/links change often), trust the best title match so
+                // we still return streams instead of nothing.
+                if (!animeSession) {
+                    animeSession = pickBestMatch(searchResults.data, animeTitle, false)
+                        || searchResults.data[0].session;
+                }
             }
         } else {
-            // --- MOVIE STRATEGY: PERFECT TITLE MATCH ---
+            // --- MOVIE STRATEGY: NORMALIZED / FUZZY TITLE MATCH ---
             const tmdbUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49`;
             const tmdbRes = await fetch(tmdbUrl);
             const tmdbData = await tmdbRes.json();
             animeTitle = tmdbData.title || tmdbData.original_title;
+            const originalTitle = tmdbData.original_title;
             mappedEp = 1;
 
             if (!animeTitle) return [];
 
             const searchResults = await searchAnime(animeTitle);
-            if (searchResults.data && searchResults.data.length > 0) {
-                const firstResult = searchResults.data[0];
-                if (firstResult.title.toLowerCase() === animeTitle.toLowerCase()) {
-                    animeSession = firstResult.session;
-                }
+            animeSession = pickBestMatch(searchResults.data, animeTitle, true)
+                || pickBestMatch(searchResults.data, originalTitle, true);
+
+            // Retry search with the original (often romaji/Japanese) title.
+            if (!animeSession && originalTitle && originalTitle !== animeTitle) {
+                const altResults = await searchAnime(originalTitle);
+                animeSession = pickBestMatch(altResults.data, originalTitle, true)
+                    || pickBestMatch(altResults.data, animeTitle, true);
             }
         }
 

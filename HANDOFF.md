@@ -26,7 +26,22 @@
   - `node -e "require('./providers/<name>.js')"`
 - 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
 
-## 当前进度（截至 2026-05-29，repo 版本 1.1.6）
+## 当前进度（截至 2026-05-30，repo 版本 1.1.7）
+
+### 多 provider 修复批次（进行中，按推荐顺序：动画/中文优先）
+
+进度表见 Canvas：`~/.cursor/projects/c-Users-cbdog-Documents-New-project-nuvio-providers-cb/canvases/providers-fix-plan.canvas.tsx`
+
+- [x] **animepahe `1.0.2-cb2`**：后端探活全部正常；修电影标题匹配（原来要求完全相等→改 normalize+子串+优先Movie+回退原名搜索）、TV 验证失败回退首结果。**kwik 提取未能本地验证**（shell 直连这些域名会卡、WebFetch 会把 HTML 转 markdown 丢 data-src），若真机不能播需专查 kwik。
+- [ ] moviebox（中文）/ vidnest-anime / vixsrc / dooflix / animekai / moviesmod —— 待办
+
+排查工具备忘：动画后端探活可用 WebFetch 打这些（已确认活）：
+- 搜索: `https://animepaheproxy.phisheranimepahe.workers.dev/?url=https://animepahe.pw/api?m=search&l=8&q=<名>`（注意 & 要按需转义）
+- 映射: `https://id-mapping-api-malid.hf.space/api/resolve?id=<imdb>&s=<S>&e=<E>`
+
+---
+
+## 历史进度（4KHDHub 等，repo ≤ 1.1.6）
 
 已完成的 fork 改动（见 CHANGELOG）：
 

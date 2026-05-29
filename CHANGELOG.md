@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.7 - 2026-05-30
+
+- AnimePahe provider bumped to `1.0.2-cb2`.
+- Verified the backends are alive (proxy + animepahe.pw search/release APIs and the HF-space MAL mapping all respond), so the breakage was in matching, not the sources.
+- Movie lookup no longer requires an exact title match (it almost never matched). Now normalizes titles and matches by exact-normalized then substring, prefers Movie-type entries, and retries with the TMDB original (romaji/Japanese) title.
+- TV lookup now falls back to the best title match / first result when MAL-id page verification fails to confirm a candidate, so episodes still return streams instead of nothing.
+- Reference: phisher98 Cloudstream `AnimePahe` (same proxy + api?m=search/release flow).
+
 ## 1.1.6 - 2026-05-29
 
 - 4KHDHub provider bumped to `1.0.8-cb6`.
