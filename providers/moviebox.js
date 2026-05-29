@@ -186,6 +186,34 @@ function normalizeTitle(s) {
         .replace(/\s+/g, " ");
 }
 
+function addUnique(arr, value) {
+    const v = String(value || '').replace(/\s+/g, ' ').trim();
+    if (v && !arr.some(x => x.toLowerCase() === v.toLowerCase())) arr.push(v);
+}
+
+function ordinal(n) {
+    n = parseInt(n, 10);
+    if (!n) return '';
+    const suffix = (n % 10 === 1 && n % 100 !== 11) ? 'st' : (n % 10 === 2 && n % 100 !== 12) ? 'nd' : (n % 10 === 3 && n % 100 !== 13) ? 'rd' : 'th';
+    return `${n}${suffix}`;
+}
+
+function buildSearchTerms(details, mediaType, seasonNum) {
+    const terms = [];
+    [details.title, details.originalTitle, details.originalName].forEach(base => {
+        if (!base) return;
+        addUnique(terms, base);
+        addUnique(terms, base.replace(/[-–—].*$/, ''));
+        addUnique(terms, base.replace(/[:._-]+/g, ' '));
+        addUnique(terms, base.replace(/\s+/g, ''));
+        if (mediaType === 'tv' && seasonNum && parseInt(seasonNum, 10) > 1) {
+            addUnique(terms, `${base} Season ${seasonNum}`);
+            addUnique(terms, `${base} ${ordinal(seasonNum)} Season`);
+        }
+    });
+    return terms;
+}
+
 function searchMovieBox(query) {
     const url = `${API_BASE}/wefeed-mobile-bff/subject-api/search/v2`;
     // Strict formatting
@@ -203,6 +231,29 @@ function searchMovieBox(query) {
         }
         return [];
     });
+}
+
+function searchMovieBoxMany(queries) {
+    const out = [];
+    const seenSubjects = {};
+    const seenQueries = {};
+    let chain = Promise.resolve();
+
+    queries.forEach(query => {
+        const q = String(query || '').trim();
+        if (!q || seenQueries[q.toLowerCase()]) return;
+        seenQueries[q.toLowerCase()] = true;
+        chain = chain.then(() => searchMovieBox(q).then(subjects => {
+            subjects.forEach(subject => {
+                const key = subject.subjectId || subject.id || `${subject.title}-${subject.year}`;
+                if (!key || seenSubjects[key]) return;
+                seenSubjects[key] = true;
+                out.push(subject);
+            });
+        }).catch(() => null));
+    });
+
+    return chain.then(() => out);
 }
 
 function findBestMatch(subjects, tmdbTitle, tmdbYear, mediaType) {
@@ -406,21 +457,10 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
     return fetchTmdbDetails(tmdbId, mediaType).then(details => {
         if (!details) return [];
 
-        return searchMovieBox(details.title).then(subjects => {
-            let bestMatch = findBestMatch(subjects, details.title, details.year, mediaType);
-
-            if (!bestMatch && details.originalTitle && details.originalTitle !== details.title) {
-                return searchMovieBox(details.originalTitle).then(subjects2 => {
-                    bestMatch = findBestMatch(subjects2, details.originalTitle, details.year, mediaType);
-                    if (bestMatch) {
-                        let s = (mediaType === 'tv') ? seasonNum : 0;
-                        let e = (mediaType === 'tv') ? episodeNum : 0;
-                        return getStreamLinks(bestMatch.subjectId, s, e, details.title, mediaType);
-                    }
-                    return [];
-                });
-            }
-
+        return searchMovieBoxMany(buildSearchTerms(details, mediaType, seasonNum)).then(subjects => {
+            let bestMatch = findBestMatch(subjects, details.title, details.year, mediaType)
+                || findBestMatch(subjects, details.originalTitle, details.year, mediaType)
+                || findBestMatch(subjects, details.originalName, details.year, mediaType);
             if (bestMatch) {
                 let s = (mediaType === 'tv') ? seasonNum : 0;
                 let e = (mediaType === 'tv') ? episodeNum : 0;

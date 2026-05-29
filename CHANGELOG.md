@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.16 - 2026-05-30
+
+- **MovieBox `1.1.2-cb2`**: Adds aggregated alias search for TMDB title, original title/name, punctuation-stripped forms, no-space forms, and season-specific terms. This improves matching for anime/TV titles with inconsistent naming.
+- **VidnestAnime `1.0.1-cb1`**: Disabled by default because the provider still calls the old `backend.vidnest.fun` API while current Vidnest public docs expose embed URLs, not the old JSON backend.
+- Documented that VidnestAnime needs a rewrite instead of small parameter tweaks; leaving it enabled only adds a dead provider to Nuvio searches.
+
 ## 1.1.15 - 2026-05-30
 
 - **AnimeKai `1.1.3-cb5`**: Keeps the raw MegaUp master playlist as an `Auto` fallback alongside parsed quality variants, so Nuvio can try both playback shapes on device.

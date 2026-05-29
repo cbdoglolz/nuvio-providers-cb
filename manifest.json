@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -165,8 +165,8 @@
     {
       "id": "moviebox",
       "name": "MovieBox",
-      "description": "MovieBox streaming with multiple language support (DASH + MP4)",
-      "version": "1.1.1-cb1",
+      "description": "MovieBox streaming with expanded title aliases for movies and TV.",
+      "version": "1.1.2-cb2",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -345,15 +345,15 @@
     {
       "id": "vidnest-anime",
       "name": "VidnestAnime",
-      "description": "Vidnest anime streaming with TMDB→AniList mapping and 5 servers (hindi, satoru, miko, pahe, anya)",
-      "version": "1.0.0",
+      "description": "Vidnest anime legacy backend. Disabled in cbrepo because the old backend is gone; current Vidnest is embed-only and needs a rewrite.",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
         "tv"
       ],
       "filename": "providers/vidnest-anime.js",
-      "enabled": true,
+      "enabled": false,
       "formats": [
         "m3u8"
       ],

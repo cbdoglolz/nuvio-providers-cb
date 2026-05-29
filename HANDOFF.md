@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.15`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.16`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -49,7 +49,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 |----------|------|------|------|
 | **HDHub4u** | 1.1.2-cb1 | ✅ 已修 | 搜索 API 改为 `search.hdhub4u.glass`（原 pingora 403）。用户真机 Hail Mary OK |
 | **UHDMovies** | 1.2.2-cb4 | ✅ 已修 | Instant Download：follow redirect 取 `url=` 直链；`Project X` 短标题搜索回退。本地 Oppenheimer 13 流、Hail Mary 8 流 |
-| **MovieBox** | 1.1.1-cb1 | ✅ 电影 | `resourceDetectors[].downloadUrl`；TV 无 downloadUrl；几乎无中文音轨 |
+| **MovieBox** | 1.1.2-cb2 | ✅ 电影 / ⚠️ TV | `resourceDetectors[].downloadUrl`；1.1.16 加 TMDB/original/Season aliases 聚合搜索。TV 仍可能无 `downloadUrl`，只有外部 `resourceLink` page |
 | **Vidlink** | 1.0.2-cb1 | ✅ 可用 | m3u8 多清晰度；去掉 size/quality 的 `Unknown` 显示 |
 | **StreamFlix** | 1.0.1-cb1 | ✅ 本地 OK | Oppenheimer 4 流，待真机 |
 | **MovieBlast** | 1.0.1-cb1 | ⚠️ 待验证 | 补 CDN headers、有 mkv 时跳过 m3u8；Hail Mary 本地 4 条 mkv 200 |
@@ -59,7 +59,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **AnimeKai** | 1.1.3-cb5 | ⚠️ 待真机复测 | **能搜到新番、有源**；必须继续修。1.1.15 保留 MegaUp master playlist 作为 Auto fallback，同时保留解析出的清晰度 variant |
 | **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
 | **Dooflix** | 1.0.1-cb1 | ❌ 阻塞 | API key 轮换 401，需用户从 App 提供新 key |
-| **VidnestAnime** | 1.0.0 | ❌ 上游挂 | backend DNS 没了 / first 530 |
+| **VidnestAnime** | 1.0.1-cb1 | ❌ 默认关闭 | 旧代码打 `backend.vidnest.fun`；当前公开 Vidnest 是 `vidnest.fun/anime/[ANILIST_ID]/[EP]/[SUB_OR_DUB]` embed 形态，不是旧 JSON 后端，需重写 |
 | **NetMirror** | 1.0.3-cb1 | ❌ 已默认关闭 | 源站限流，10 分钟占位视频 |
 | **DVDPlay** | 1.0.2 | ⚠️ 匹配差 | 印度站；Oppenheimer 搜到错片（Kara 2026），需加 year 评分 |
 | **Cinemacity** | 1.0.0 | ❌ 本地 0 流 | 未修 |
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.15**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.16**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -132,6 +132,13 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 - 电影：`data.resourceDetectors[].downloadUrl`（206 MP4）
 - TV：`downloadUrl` 空，只有外部 `resourceLink` page
+- 1.1.16：搜索侧已增强（TMDB title/original/no-space/punctuation/Season aliases），但 TV 播放仍取决于 API 是否给当前集 `downloadUrl`
+
+### VidnestAnime
+
+- 旧 provider 使用 `https://backend.vidnest.fun/...` JSON API，已失效
+- 当前公开 Vidnest 文档是 iframe embed：`https://vidnest.fun/anime/[ANILIST_ID]/[EPISODE]/[SUB_OR_DUB]`
+- Nuvio provider 需要直链，不应把 iframe URL 伪装成视频流；因此 1.1.16 默认关闭，后续要么抓 Next/chunk API，要么放弃
 
 ### Nuvio 缓存
 
@@ -155,14 +162,15 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 8. Codex 建议下一步（按优先级）
 
-1. **等用户反馈** 1.1.15：AnimeKai / AnimePahe 新番、尤其 *Re:ZERO* S4 是否能搜到并播放；若 AnimeKai 仍不能播，考虑 m3u8 proxy
+1. **等用户反馈** 1.1.16：AnimeKai / AnimePahe 新番、尤其 *Re:ZERO* S4 是否能搜到并播放；若 AnimeKai 仍不能播，考虑 m3u8 proxy
 2. **等用户反馈**：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
 3. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
 4. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
-5. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
-6. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
-7. **Dooflix**：等用户提供新 API key
-8. **4KHDHub seek**：用户已放弃，除非主动回来
+5. **MovieBox TV**：若仍 0 流，下一步 scraping `resourceLink` 外站（工作量大）
+6. **VidnestAnime**：只有在愿意重写 embed/API 提取时再启用
+7. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
+8. **Dooflix**：等用户提供新 API key
+9. **4KHDHub seek**：用户已放弃，除非主动回来
 
 ---
 
