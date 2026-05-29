@@ -36,6 +36,24 @@ function makeRequest(url, options = {}) {
     };
 
     return fetch(url, requestOptions).then(function (response) {
+        if ([403, 503].includes(response.status) && typeof Cloudflare !== 'undefined' && Cloudflare.solve) {
+            console.log(`[DahmerMovies] Cloudflare challenge on ${url}, retrying with solved cookies.`);
+            return Cloudflare.solve(url).then(function (solution) {
+                const retryHeaders = {
+                    ...requestOptions.headers,
+                    ...(solution && solution.headers ? solution.headers : {})
+                };
+                if (solution && (solution.cookie || solution.cookies)) {
+                    retryHeaders.Cookie = solution.cookie || solution.cookies;
+                }
+                if (solution && solution.userAgent) {
+                    retryHeaders['User-Agent'] = solution.userAgent;
+                }
+                return fetch(url, { ...requestOptions, headers: retryHeaders });
+            });
+        }
+        return response;
+    }).then(function (response) {
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -114,6 +132,31 @@ function decode(input) {
     } catch (e) {
         return input;
     }
+}
+
+function addUniqueTitle(titles, title) {
+    const clean = (title || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (!titles.some(item => item.toLowerCase() === key)) {
+        titles.push(clean);
+    }
+}
+
+function buildTitleVariants(tmdbData, mediaType) {
+    const titles = [];
+    const title = mediaType === 'tv' ? tmdbData.name : tmdbData.title;
+    const originalTitle = mediaType === 'tv' ? tmdbData.original_name : tmdbData.original_title;
+    const candidates = [title, originalTitle].filter(Boolean);
+
+    for (const candidate of candidates) {
+        addUniqueTitle(titles, candidate);
+        addUniqueTitle(titles, candidate.replace(/[:._-]+/g, ' '));
+        addUniqueTitle(titles, candidate.replace(/[^\w\s]/g, ' '));
+        addUniqueTitle(titles, candidate.replace(/\s+\(\d{4}\)$/, ''));
+    }
+
+    return titles.slice(0, 8);
 }
 
 // Function to resolve redirects and get the final direct URL
@@ -405,13 +448,23 @@ function getStreams(tmdbId, mediaType = 'movie', seasonNum = null, episodeNum = 
 
         console.log(`[DahmerMovies] TMDB Info: "${title}" (${year})`);
 
-        // Call the main scraper function
-        return invokeDahmerMovies(
-            title,
-            year ? parseInt(year) : null,
-            seasonNum,
-            episodeNum
-        );
+        const titleVariants = buildTitleVariants(tmdbData, mediaType);
+        console.log(`[DahmerMovies] Trying ${titleVariants.length} title variant(s).`);
+
+        let chain = Promise.resolve([]);
+        titleVariants.forEach(function (candidateTitle) {
+            chain = chain.then(function (streams) {
+                if (streams && streams.length > 0) return streams;
+                return invokeDahmerMovies(
+                    candidateTitle,
+                    year ? parseInt(year) : null,
+                    seasonNum,
+                    episodeNum
+                );
+            });
+        });
+
+        return chain;
 
     }).catch(function (error) {
         console.error(`[DahmerMovies] Error in getStreams: ${error.message}`);

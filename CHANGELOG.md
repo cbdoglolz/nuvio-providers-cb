@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.23 - 2026-05-30
+
+- **DahmerMovies `1.0.2-cb1`**: Added TMDB original-title and punctuation-normalized title fallbacks before giving up on a directory path.
+- Added `Cloudflare.solve()` retry support to the shared DahmerMovies request helper for 403/503 responses.
+- This is a conservative search/retry patch only; the existing direct-link parsing and rate-limit-safe sequential resolver were left unchanged.
+
 ## 1.1.22 - 2026-05-30
 
 - **AllMovieLand `1.0.1-cb1`**: Added aggregated title alias search using TMDB title, original title/name, punctuation-stripped forms, no-space forms, and season-specific TV terms.
