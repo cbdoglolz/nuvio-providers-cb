@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.12 - 2026-05-30
+
+- **AnimeKai `1.1.2-cb2`**: Disabled by default. It can find anime and MegaUp-backed sources, but real-device playback still fails in Nuvio because the HLS flow needs per-segment MegaUp headers and has short-lived playlist URLs.
+- **NetMirror `1.0.3-cb1`**: Disabled by default. The source heavily rate-limits and may show a 10-minute access-limit placeholder instead of a playable stream.
+- Updated the README Nuvio subscription URL to point at this fork's `main/manifest.json` instead of the upstream tapframe repo.
+
 ## 1.1.11 - 2026-05-30
 
 - **UHDMovies `1.2.2-cb4`**: Added search fallback when TMDB title has a `Project …` prefix (e.g. *Project Hail Mary* also tries *Hail Mary*). Helps when the site lists the short title.

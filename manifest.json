@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.11",
+  "version": "1.1.12",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -25,15 +25,15 @@
     {
       "id": "animekai",
       "name": "AnimeKai",
-      "description": "AnimeKai TV episodes via AnimeKai servers",
-      "version": "1.1.1-cb1",
+      "description": "AnimeKai TV episodes via AnimeKai servers. Disabled in cbrepo: MegaUp HLS streams currently do not play reliably in Nuvio.",
+      "version": "1.1.2-cb2",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
         "tv"
       ],
       "filename": "providers/animekai.js",
-      "enabled": true,
+      "enabled": false,
       "limited": true,
       "logo": "https://animekai.to/assets/uploads/37585a39fe8c8d8fafaa2c7bfbf5374ecac859ea6a0288a6da2c61f5.png",
       "contentLanguage": [
@@ -123,15 +123,15 @@
     {
       "id": "netmirror",
       "name": "NetMirror",
-      "description": "Streaming links from netmirror. Automatically disabled on iOS due to compatibility issues.",
-      "version": "1.0.2",
+      "description": "Streaming links from NetMirror. Disabled in cbrepo: source rate-limits heavily and may show an access-limit placeholder.",
+      "version": "1.0.3-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
         "tv"
       ],
       "filename": "providers/netmirror.js",
-      "enabled": true,
+      "enabled": false,
       "logo": "https://net22.cc/favicon.ico",
       "contentLanguage": [
         "en"

@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.11`**，分支 **`main`**  
+> 最后更新：**2026-05-30**，repo **`1.1.12`**，分支 **`main`**  
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -56,11 +56,11 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **YFlix** | 1.1.2 | ⚠️ 待验证 | 本地有流，enc-dec 路线 |
 | **4KHDHub** | 1.0.8-cb6 | ⚠️ seek 未解 | HubDrive→R2 直链已做；用户放弃继续追 seek；按清晰度排序 |
 | **AnimePahe** | 1.0.2-cb3 | ❌ 跳过 | 搜索/MAL 映射 OK；Kwik 403，加了 CF.solve 仍真机失败 |
-| **AnimeKai** | 1.1.1-cb1 | ❌ 跳过 | **能搜到新番、有源、全不能播** — MegaUp HLS + Referer 每分片 + URL 含逗号；Nuvio 播放器栈不适配（见 §6） |
+| **AnimeKai** | 1.1.2-cb2 | ❌ 已默认关闭 | **能搜到新番、有源、全不能播** — MegaUp HLS + Referer 每分片 + URL 含逗号；Nuvio 播放器栈不适配（见 §6） |
 | **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
 | **Dooflix** | 1.0.1-cb1 | ❌ 阻塞 | API key 轮换 401，需用户从 App 提供新 key |
 | **VidnestAnime** | 1.0.0 | ❌ 上游挂 | backend DNS 没了 / first 530 |
-| **NetMirror** | 1.0.2 | ❌ 不建议 | 源站限流，10 分钟占位视频 |
+| **NetMirror** | 1.0.3-cb1 | ❌ 已默认关闭 | 源站限流，10 分钟占位视频 |
 | **DVDPlay** | 1.0.2 | ⚠️ 匹配差 | 印度站；Oppenheimer 搜到错片（Kara 2026），需加 year 评分 |
 | **Cinemacity** | 1.0.0 | ❌ 本地 0 流 | 未修 |
 
@@ -152,15 +152,13 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 8. Codex 建议下一步（按优先级）
 
-1. **等用户反馈** 1.1.11：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
-2. **NetMirror**：manifest `enabled: false` 或 description 警告（用户已嫌垃圾）
-3. **AnimeKai**：manifest `enabled: false` + 说明 MegaUp 不兼容 Nuvio（用户同意可关）
-4. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
-5. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
-6. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
-7. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
-8. **Dooflix**：等用户提供新 API key
-9. **4KHDHub seek**：用户已放弃，除非主动回来
+1. **等用户反馈** 1.1.12：UHDMovies Hail Mary、MovieBlast、Vidlink 标签
+2. **Vixsrc / MoviesMod**：仅真机失败时再改；要日志
+3. **DVDPlay**：`findBestMatch` 加 **year** 权重，避免 Oppenheimer→Kara
+4. **MovieBox TV**：scraping `resourceLink` 外站（工作量大）
+5. **中文源**：调研纯 API、无 CF/kkey 的新 provider（KissKH 不可 port）
+6. **Dooflix**：等用户提供新 API key
+7. **4KHDHub seek**：用户已放弃，除非主动回来
 
 ---
 
@@ -176,7 +174,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 ## 10. 杂项
 
 - `.npm-cache/` 勿提交
-- README Quick Start 仍指向上游 tapframe URL，**应改为用户 fork**（未改，可顺手修）
+- README Quick Start 已改为用户 fork raw manifest URL（1.1.12）
 - Canvas 计划：`canvases/providers-fix-plan.canvas.tsx`（若存在）
 - 不要用 Consumet 公网 API；不要 port HiAnime/Gogo 除非动画源全灭
 
