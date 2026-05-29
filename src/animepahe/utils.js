@@ -42,6 +42,23 @@ export async function getImdbId(tmdbId, mediaType) {
     }
 }
 
+export async function getTmdbDetails(tmdbId, mediaType) {
+    try {
+        const type = mediaType === 'tv' ? 'tv' : 'movie';
+        const url = `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49&append_to_response=external_ids`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return {
+            title: data.name || data.title || '',
+            originalTitle: data.original_name || data.original_title || '',
+            imdbId: data.external_ids && data.external_ids.imdb_id
+        };
+    } catch (e) {
+        return null;
+    }
+}
+
 export async function resolveMapping(imdbId, season, episode) {
     try {
         const url = `https://id-mapping-api-malid.hf.space/api/resolve?id=${imdbId}&s=${season}&e=${episode}`;
@@ -67,6 +84,30 @@ export async function getMalTitle(malId) {
 export async function searchAnime(query) {
     const url = `/api?m=search&l=8&q=${encodeURIComponent(query)}`;
     return await fetchJson(url);
+}
+
+export async function searchAnimeMany(queries) {
+    const out = [];
+    const seenSessions = {};
+    const seenQueries = {};
+    for (const q of queries) {
+        const query = String(q || '').trim();
+        if (!query || seenQueries[query.toLowerCase()]) continue;
+        seenQueries[query.toLowerCase()] = true;
+        try {
+            const results = await searchAnime(query);
+            const list = results && results.data ? results.data : [];
+            for (const item of list) {
+                const key = item && item.session;
+                if (!key || seenSessions[key]) continue;
+                seenSessions[key] = true;
+                out.push(item);
+            }
+        } catch (e) {
+            // Keep trying other aliases; AnimePahe search is inconsistent.
+        }
+    }
+    return { data: out };
 }
 
 export function extractQuality(text) {

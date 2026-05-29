@@ -485,7 +485,13 @@ function resolveM3U8(url, serverType, serverName, streamReferer) {
         .then(function (content) {
             if (content.indexOf('#EXT-X-STREAM-INF') !== -1) {
                 var variants = parseM3U8Master(content, url);
-                var out = [];
+                var out = [{
+                    url: normalizePlayableUrl(url),
+                    quality: 'Auto',
+                    serverType: serverType,
+                    serverName: serverName + ' Master',
+                    referer: effectiveReferer
+                }];
                 for (var i = 0; i < variants.length; i++) {
                     var q = qualityFromResolutionOrBandwidth(variants[i]);
                     out.push({ url: normalizePlayableUrl(variants[i].url), quality: q, serverType: serverType, serverName: serverName, referer: effectiveReferer });

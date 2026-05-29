@@ -30,17 +30,24 @@ export function unpack(code) {
 }
 
 export async function extractKwik(url) {
-    try {
-        // Fetch the kwik page directly (no proxy as it blocks kwik)
-        // Referer must be the URL itself as per Kotlin code: app.get(url, referer=url)
-        const html = await fetchText(url, { 
+    async function fetchKwikHtml(useProxy) {
+        return fetchText(url, {
             headers: { 
                 ...HEADERS, 
                 "Referer": url,
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             },
-            useProxy: false 
+            useProxy
         });
+    }
+
+    try {
+        let html;
+        try {
+            html = await fetchKwikHtml(false);
+        } catch (directError) {
+            html = await fetchKwikHtml(true);
+        }
         
         // Find all script tags
         const scripts = html.match(/<script.*?>([\s\S]*?)<\/script>/g) || [];

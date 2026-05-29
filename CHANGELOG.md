@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.15 - 2026-05-30
+
+- **AnimeKai `1.1.3-cb5`**: Keeps the raw MegaUp master playlist as an `Auto` fallback alongside parsed quality variants, so Nuvio can try both playback shapes on device.
+- **AnimePahe `1.0.2-cb4`**: Adds TMDB details lookup, multiple title aliases (`Season N`, `Nth Season`, punctuation-stripped forms), and searches all aliases before picking a match.
+- AnimePahe now verifies up to 8 search hits against the target MAL ID instead of only 3, improving newer season matches such as *Re:ZERO* Season 4.
+- AnimePahe Kwik extraction now tries direct Kwik first, then falls back through the existing AnimePahe proxy if direct fetch is blocked.
+- Note: Codex could not run `node build.js animepahe` in this sandbox because esbuild hit a path access error, so the source changes were mirrored manually into `providers/animepahe.js`.
+
 ## 1.1.14 - 2026-05-30
 
 - **AnimeKai `1.1.3-cb4`**: Added TMDB season-episode fallback for newer seasons when Cinemeta has not caught up, aimed at titles like *Re:ZERO* Season 4.

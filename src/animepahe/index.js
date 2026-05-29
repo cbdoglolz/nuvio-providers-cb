@@ -1,10 +1,38 @@
 import cheerio from 'cheerio-without-node-native';
-import { fetchJson, fetchText, searchAnime, extractQuality, getImdbId, resolveMapping, getMalTitle } from './utils.js';
+import { fetchJson, fetchText, searchAnime, searchAnimeMany, extractQuality, getTmdbDetails, resolveMapping, getMalTitle } from './utils.js';
 import { extractKwik } from './extractors.js';
 import { MAIN_URL } from './constants.js';
 
 function normalizeTitle(s) {
     return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function addUnique(arr, value) {
+    const v = String(value || '').replace(/\s+/g, ' ').trim();
+    if (v && !arr.some(x => x.toLowerCase() === v.toLowerCase())) arr.push(v);
+}
+
+function ordinal(n) {
+    n = parseInt(n, 10);
+    if (!n) return '';
+    const suffix = (n % 10 === 1 && n % 100 !== 11) ? 'st' : (n % 10 === 2 && n % 100 !== 12) ? 'nd' : (n % 10 === 3 && n % 100 !== 13) ? 'rd' : 'th';
+    return `${n}${suffix}`;
+}
+
+function buildAnimeSearchTerms(title, originalTitle, season) {
+    const terms = [];
+    [title, originalTitle].forEach(base => {
+        if (!base) return;
+        addUnique(terms, base);
+        addUnique(terms, base.replace(/[-–—].*$/, ''));
+        addUnique(terms, base.replace(/[:._-]+/g, ' '));
+        addUnique(terms, base.replace(/\s+/g, ''));
+        if (season && parseInt(season, 10) > 1) {
+            addUnique(terms, `${base} Season ${season}`);
+            addUnique(terms, `${base} ${ordinal(season)} Season`);
+        }
+    });
+    return terms;
 }
 
 // Pick the best AnimePahe search hit for a wanted title. AnimePahe titles
@@ -37,10 +65,11 @@ async function getStreams(tmdbId, mediaType, season, episode) {
         let animeTitle = "";
         let mappedEp = episode;
         let targetMalId = null;
+        const tmdbDetails = await getTmdbDetails(tmdbId, mediaType);
 
         if (mediaType === 'tv') {
             // --- SERIES STRATEGY: ID-BASED WITH VERIFICATION ---
-            const imdbId = await getImdbId(tmdbId, mediaType);
+            const imdbId = tmdbDetails && tmdbDetails.imdbId;
             if (!imdbId) return [];
 
             const mapping = await resolveMapping(imdbId, season, episode);
@@ -52,11 +81,12 @@ async function getStreams(tmdbId, mediaType, season, episode) {
 
             if (!animeTitle) return [];
 
-            const searchResults = await searchAnime(animeTitle);
+            const searchTerms = buildAnimeSearchTerms(animeTitle, tmdbDetails && (tmdbDetails.originalTitle || tmdbDetails.title), season);
+            const searchResults = await searchAnimeMany(searchTerms);
             if (searchResults.data && searchResults.data.length > 0) {
                 // VERIFY each candidate by checking for the MAL ID on its page.
-                // Check first 3 candidates for efficiency (usually first is correct).
-                for (let i = 0; i < Math.min(searchResults.data.length, 3); i++) {
+                // Check more candidates now that we search aliases for new seasons.
+                for (let i = 0; i < Math.min(searchResults.data.length, 8); i++) {
                     const item = searchResults.data[i];
                     const pageHtml = await fetchText(`/anime/${item.session}`);
                     if (pageHtml.includes(`myanimelist.net/anime/${targetMalId}`)) {
@@ -74,16 +104,13 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             }
         } else {
             // --- MOVIE STRATEGY: NORMALIZED / FUZZY TITLE MATCH ---
-            const tmdbUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49`;
-            const tmdbRes = await fetch(tmdbUrl);
-            const tmdbData = await tmdbRes.json();
-            animeTitle = tmdbData.title || tmdbData.original_title;
-            const originalTitle = tmdbData.original_title;
+            animeTitle = tmdbDetails && (tmdbDetails.title || tmdbDetails.originalTitle);
+            const originalTitle = tmdbDetails && tmdbDetails.originalTitle;
             mappedEp = 1;
 
             if (!animeTitle) return [];
 
-            const searchResults = await searchAnime(animeTitle);
+            const searchResults = await searchAnimeMany(buildAnimeSearchTerms(animeTitle, originalTitle, 0));
             animeSession = pickBestMatch(searchResults.data, animeTitle, true)
                 || pickBestMatch(searchResults.data, originalTitle, true);
 

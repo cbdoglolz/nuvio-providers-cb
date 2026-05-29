@@ -134,6 +134,25 @@ function getImdbId(tmdbId, mediaType) {
     }
   });
 }
+function getTmdbDetails(tmdbId, mediaType) {
+  return __async(this, null, function* () {
+    try {
+      const type = mediaType === "tv" ? "tv" : "movie";
+      const url = `https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49&append_to_response=external_ids`;
+      const res = yield fetch(url);
+      if (!res.ok)
+        return null;
+      const data = yield res.json();
+      return {
+        title: data.name || data.title || "",
+        originalTitle: data.original_name || data.original_title || "",
+        imdbId: data.external_ids && data.external_ids.imdb_id
+      };
+    } catch (e) {
+      return null;
+    }
+  });
+}
 function resolveMapping(imdbId, season, episode) {
   return __async(this, null, function* () {
     try {
@@ -166,6 +185,32 @@ function searchAnime(query) {
     return yield fetchJson(url);
   });
 }
+function searchAnimeMany(queries) {
+  return __async(this, null, function* () {
+    const out = [];
+    const seenSessions = {};
+    const seenQueries = {};
+    for (const q of queries) {
+      const query = String(q || "").trim();
+      if (!query || seenQueries[query.toLowerCase()])
+        continue;
+      seenQueries[query.toLowerCase()] = true;
+      try {
+        const results = yield searchAnime(query);
+        const list = results && results.data ? results.data : [];
+        for (const item of list) {
+          const key = item && item.session;
+          if (!key || seenSessions[key])
+            continue;
+          seenSessions[key] = true;
+          out.push(item);
+        }
+      } catch (e) {
+      }
+    }
+    return { data: out };
+  });
+}
 function extractQuality(text) {
   const match = text.match(/(\d{3,4}p)/);
   return match ? match[1] : "720p";
@@ -194,14 +239,22 @@ function unpack(code) {
 }
 function extractKwik(url) {
   return __async(this, null, function* () {
-    try {
-      const html = yield fetchText(url, {
+    function fetchKwikHtml(useProxy) {
+      return fetchText(url, {
         headers: __spreadProps(__spreadValues({}, HEADERS), {
           "Referer": url,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }),
-        useProxy: false
+        useProxy
       });
+    }
+    try {
+      let html;
+      try {
+        html = yield fetchKwikHtml(false);
+      } catch (directError) {
+        html = yield fetchKwikHtml(true);
+      }
       const scripts = html.match(/<script.*?>([\s\S]*?)<\/script>/g) || [];
       const matches = [];
       for (const script of scripts) {
@@ -247,6 +300,34 @@ function extractKwik(url) {
 function normalizeTitle(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
+function addUnique(arr, value) {
+  const v = String(value || "").replace(/\s+/g, " ").trim();
+  if (v && !arr.some((x) => x.toLowerCase() === v.toLowerCase()))
+    arr.push(v);
+}
+function ordinal(n) {
+  n = parseInt(n, 10);
+  if (!n)
+    return "";
+  const suffix = n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n % 100 !== 12 ? "nd" : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+function buildAnimeSearchTerms(title, originalTitle, season) {
+  const terms = [];
+  [title, originalTitle].forEach((base) => {
+    if (!base)
+      return;
+    addUnique(terms, base);
+    addUnique(terms, base.replace(/[-–—].*$/, ""));
+    addUnique(terms, base.replace(/[:._-]+/g, " "));
+    addUnique(terms, base.replace(/\s+/g, ""));
+    if (season && parseInt(season, 10) > 1) {
+      addUnique(terms, `${base} Season ${season}`);
+      addUnique(terms, `${base} ${ordinal(season)} Season`);
+    }
+  });
+  return terms;
+}
 function pickBestMatch(list, title, preferMovie) {
   if (!Array.isArray(list) || list.length === 0)
     return null;
@@ -275,8 +356,9 @@ function getStreams(tmdbId, mediaType, season, episode) {
       let animeTitle = "";
       let mappedEp = episode;
       let targetMalId = null;
+      const tmdbDetails = yield getTmdbDetails(tmdbId, mediaType);
       if (mediaType === "tv") {
-        const imdbId = yield getImdbId(tmdbId, mediaType);
+        const imdbId = tmdbDetails && tmdbDetails.imdbId || (yield getImdbId(tmdbId, mediaType));
         if (!imdbId)
           return [];
         const mapping = yield resolveMapping(imdbId, season, episode);
@@ -287,9 +369,10 @@ function getStreams(tmdbId, mediaType, season, episode) {
         animeTitle = yield getMalTitle(targetMalId);
         if (!animeTitle)
           return [];
-        const searchResults = yield searchAnime(animeTitle);
+        const searchTerms = buildAnimeSearchTerms(animeTitle, tmdbDetails && (tmdbDetails.originalTitle || tmdbDetails.title), season);
+        const searchResults = yield searchAnimeMany(searchTerms);
         if (searchResults.data && searchResults.data.length > 0) {
-          for (let i = 0; i < Math.min(searchResults.data.length, 3); i++) {
+          for (let i = 0; i < Math.min(searchResults.data.length, 8); i++) {
             const item = searchResults.data[i];
             const pageHtml = yield fetchText(`/anime/${item.session}`);
             if (pageHtml.includes(`myanimelist.net/anime/${targetMalId}`)) {
@@ -302,15 +385,12 @@ function getStreams(tmdbId, mediaType, season, episode) {
           }
         }
       } else {
-        const tmdbUrl = `https://api.themoviedb.org/3/movie/${tmdbId}?api_key=1865f43a0549ca50d341dd9ab8b29f49`;
-        const tmdbRes = yield fetch(tmdbUrl);
-        const tmdbData = yield tmdbRes.json();
-        animeTitle = tmdbData.title || tmdbData.original_title;
-        const originalTitle = tmdbData.original_title;
+        animeTitle = tmdbDetails && (tmdbDetails.title || tmdbDetails.originalTitle);
+        const originalTitle = tmdbDetails && tmdbDetails.originalTitle;
         mappedEp = 1;
         if (!animeTitle)
           return [];
-        const searchResults = yield searchAnime(animeTitle);
+        const searchResults = yield searchAnimeMany(buildAnimeSearchTerms(animeTitle, originalTitle, 0));
         animeSession = pickBestMatch(searchResults.data, animeTitle, true) || pickBestMatch(searchResults.data, originalTitle, true);
         if (!animeSession && originalTitle && originalTitle !== animeTitle) {
           const altResults = yield searchAnime(originalTitle);
