@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.8 - 2026-05-30
+
+- MovieBox provider bumped to `1.1.1-cb1`.
+- Fixed movies returning 0 streams: MovieBox moved playable links out of the old `play-info` endpoint (now returns an empty `streams` array). Streams are now read from the subject `get` response under `data.resourceDetectors[].downloadUrl` (a signed, range-enabled direct MP4 — verified HTTP 206 / `video/mp4`).
+- Iterates language variants from `data.dubs` (capped) and keeps the legacy `play-info` call as a fallback.
+- Fixed a quality-label bug that printed `265p` (parsed from the `h265` codec); quality now only accepts a real `<n>p` resolution, else `Auto`, and codec is shown separately.
+- Known limitation: MovieBox TV episodes now expose only an external `resourceLink` page (ailok.pe / fzmovies.cms) with an empty `downloadUrl`, so series need extra per-site scraping (deferred). MovieBox also carries little/no Chinese audio even for major titles, so it is not a strong Chinese source.
+
 ## 1.1.7 - 2026-05-30
 
 - AnimePahe provider bumped to `1.0.2-cb2`.

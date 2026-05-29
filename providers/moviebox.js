@@ -276,70 +276,121 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
         return title || 'Stream';
     }
 
+    const isTv = mediaType === 'tv';
+    const epQuery = isTv ? `&se=${season}&ep=${episode}` : '';
+
+    // MovieBox moved playable links out of the old play-info endpoint (it now
+    // returns an empty streams array). The direct files live in the subject
+    // `get` response under data.resourceDetectors[].downloadUrl (a signed MP4).
+    // Language variants are separate subjects listed in data.dubs.
+    function getSubjectData(id) {
+        return request('GET', `${API_BASE}/wefeed-mobile-bff/subject-api/get?subjectId=${id}${epQuery}`)
+            .then(res => (res && res.data) ? res.data : null)
+            .catch(() => null);
+    }
+
+    function deriveQuality(rd) {
+        const list = rd.resolutionList;
+        if (Array.isArray(list) && list.length) {
+            const maxQ = list.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
+            if (maxQ) return `${maxQ}p`;
+        }
+        // Strip codec tokens (h264/h265/x265/hevc) first so they are not
+        // mistaken for a resolution, then only accept a number followed by "p".
+        const probe = `${rd.resourceLink || ''} ${rd.downloadUrl || ''}`
+            .replace(/[hx]\.?26[45]/gi, ' ')
+            .replace(/hevc|avc/gi, ' ');
+        const m = probe.match(/(\d{3,4})\s*p/i);
+        return m ? `${parseInt(m[1], 10)}p` : 'Auto';
+    }
+
+    function streamsFromData(data, lang) {
+        const out = [];
+        if (!data) return out;
+        const rds = data.resourceDetectors || [];
+        const seen = {};
+        rds.forEach(rd => {
+            const url = rd.downloadUrl;
+            if (!url || seen[url]) return;
+            seen[url] = true;
+            const quality = deriveQuality(rd);
+            const formatType = getFormatType(url);
+            const codec = rd.codecName ? ` ${String(rd.codecName).toUpperCase()}` : '';
+            out.push({
+                name: `MovieBox (${lang}) ${quality} [${formatType}]${codec}`,
+                title: formatTitle(mediaTitle, season, episode, mediaType),
+                url,
+                quality,
+                headers: {
+                    "Referer": API_BASE,
+                    "User-Agent": HEADERS['User-Agent']
+                }
+            });
+        });
+        return out;
+    }
+
     return request('GET', subjectUrl).then(subjectRes => {
         if (!subjectRes || !subjectRes.data) return [];
+        const mainData = subjectRes.data;
 
-        const subjectIds = [];
-        let originalLang = "Original";
-
-        const dubs = subjectRes.data.dubs;
+        // Build language variant list from dubs (cap to keep request count sane).
+        const variants = [];
+        const dubs = mainData.dubs;
         if (Array.isArray(dubs)) {
             dubs.forEach(dub => {
-                if (dub.subjectId == subjectId) {
-                    originalLang = dub.lanName || "Original";
-                } else {
-                    subjectIds.push({ id: dub.subjectId, lang: dub.lanName });
+                if (dub.subjectId && dub.subjectId != subjectId) {
+                    variants.push({ id: dub.subjectId, lang: dub.lanName || 'Dub' });
                 }
             });
         }
+        const cappedVariants = variants.slice(0, 8);
 
-        // Add original first
-        subjectIds.unshift({ id: subjectId, lang: originalLang });
+        // Main subject: for movies we already have data; for TV re-fetch with se/ep
+        // so resourceDetectors point at the requested episode.
+        const mainPromise = isTv ? getSubjectData(subjectId) : Promise.resolve(mainData);
 
-        // Fetch streams for all IDs
-        const promises = subjectIds.map(item => {
-            const playUrl = `${API_BASE}/wefeed-mobile-bff/subject-api/play-info?subjectId=${item.id}&se=${season}&ep=${episode}`;
-            return request('GET', playUrl).then(playRes => {
-                const streams = [];
-                if (playRes && playRes.data && playRes.data.streams) {
-                    playRes.data.streams.forEach(stream => {
-                        if (stream.url) {
-                            // Determine quality (avoid emitting multiple qualities for the same URL).
-                            const qualityField = stream.resolutions || stream.quality || 'Auto';
-                            let candidates = [];
+        return mainPromise.then(mainEpData => {
+            const collected = [streamsFromData(mainEpData || mainData, 'Original')];
+            const dubPromises = cappedVariants.map(v =>
+                getSubjectData(v.id).then(d => streamsFromData(d, v.lang))
+            );
+            return Promise.all(dubPromises).then(dubStreams => {
+                let flat = collected.concat(dubStreams).reduce((a, b) => a.concat(b), []);
 
-                            if (Array.isArray(qualityField)) {
-                                candidates = qualityField;
-                            } else if (typeof qualityField === 'string' && qualityField.includes(',')) {
-                                candidates = qualityField.split(',').map(s => s.trim()).filter(Boolean);
-                            } else {
-                                candidates = [qualityField];
-                            }
-
-                            const maxQ = candidates.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
-                            const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
-                            const formatType = getFormatType(stream.url);
-
-                            streams.push({
-                                name: `MovieBox (${item.lang}) ${quality} [${formatType}]`,
-                                title: formatTitle(mediaTitle, season, episode, mediaType),
-                                url: stream.url,
-                                quality,
-                                headers: {
-                                    "Referer": API_BASE,
-                                    "User-Agent": HEADERS['User-Agent'],
-                                    ...(stream.signCookie ? { "Cookie": stream.signCookie } : {})
-                                },
+                // Fallback: if nothing resolved, try the legacy play-info endpoint.
+                if (flat.length === 0) {
+                    const playUrl = `${API_BASE}/wefeed-mobile-bff/subject-api/play-info?subjectId=${subjectId}&se=${season}&ep=${episode}`;
+                    return request('GET', playUrl).then(playRes => {
+                        const streams = [];
+                        if (playRes && playRes.data && playRes.data.streams) {
+                            playRes.data.streams.forEach(stream => {
+                                if (!stream.url) return;
+                                const qualityField = stream.resolutions || stream.quality || 'Auto';
+                                let candidates = Array.isArray(qualityField) ? qualityField
+                                    : (typeof qualityField === 'string' && qualityField.includes(',')) ? qualityField.split(',').map(s => s.trim()).filter(Boolean)
+                                    : [qualityField];
+                                const maxQ = candidates.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
+                                const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
+                                streams.push({
+                                    name: `MovieBox (Original) ${quality} [${getFormatType(stream.url)}]`,
+                                    title: formatTitle(mediaTitle, season, episode, mediaType),
+                                    url: stream.url,
+                                    quality,
+                                    headers: {
+                                        "Referer": API_BASE,
+                                        "User-Agent": HEADERS['User-Agent'],
+                                        ...(stream.signCookie ? { "Cookie": stream.signCookie } : {})
+                                    }
+                                });
                             });
                         }
+                        return streams;
                     });
                 }
-                return streams;
+                return flat;
             });
-        });
-
-        return Promise.all(promises).then(res => {
-            const flat = res.flat();
+        }).then(flat => {
             flat.sort((a, b) => {
                 const qa = parseQualityNumber(a.quality);
                 const qb = parseQualityNumber(b.quality);

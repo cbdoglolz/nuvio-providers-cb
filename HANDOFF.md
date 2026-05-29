@@ -26,14 +26,18 @@
   - `node -e "require('./providers/<name>.js')"`
 - 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
 
-## 当前进度（截至 2026-05-30，repo 版本 1.1.7）
+## 当前进度（截至 2026-05-30，repo 版本 1.1.8）
+
+> 重要工具发现：**本环境 node fetch 可以联网**（shell 加 full_network 权限即可），所以能在本地真实跑 `getStreams` / 探活 API（curl 会卡，但 node fetch 正常）。调试方法：临时给 provider 加 `module.exports.__debug = {...}` 导出内部函数，跑完删掉。
 
 ### 多 provider 修复批次（进行中，按推荐顺序：动画/中文优先）
 
 进度表见 Canvas：`~/.cursor/projects/c-Users-cbdog-Documents-New-project-nuvio-providers-cb/canvases/providers-fix-plan.canvas.tsx`
 
 - [x] **animepahe `1.0.2-cb2`**：后端探活全部正常；修电影标题匹配（原来要求完全相等→改 normalize+子串+优先Movie+回退原名搜索）、TV 验证失败回退首结果。**kwik 提取未能本地验证**（shell 直连这些域名会卡、WebFetch 会把 HTML 转 markdown 丢 data-src），若真机不能播需专查 kwik。
-- [ ] moviebox（中文）/ vidnest-anime / vixsrc / dooflix / animekai / moviesmod —— 待办
+- [x] **moviebox `1.1.1-cb1`**：电影本地实测原来返 0；根因是 MovieBox 把流从 `play-info`（现返回空 streams）挪到了 subject `get` 的 `data.resourceDetectors[].downloadUrl`（签名直链 MP4，实测 206/video/mp4 可 seek）。已改用 resourceDetectors，修了把 `h265` 误判成 `265p` 的清晰度 bug。**TV 仍不出**：剧集的 downloadUrl 为空，只给外部页面 resourceLink（ailok.pe/fzmovies.cms），需要再爬外站（暂缓）。**MovieBox 几乎没有中文音轨**（连 Breaking Bad 的 dubs 都没中文），不是好的中文源。
+- [ ] vidnest-anime / vixsrc / dooflix / animekai / moviesmod —— 待办
+- 中文源：现有 provider 都不理想，**后续考虑单独新增华语/国漫源**（已在 Canvas 标注）。
 
 排查工具备忘：动画后端探活可用 WebFetch 打这些（已确认活）：
 - 搜索: `https://animepaheproxy.phisheranimepahe.workers.dev/?url=https://animepahe.pw/api?m=search&l=8&q=<名>`（注意 & 要按需转义）
