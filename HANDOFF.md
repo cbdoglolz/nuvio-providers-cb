@@ -26,12 +26,12 @@
   - `node -e "require('./providers/<name>.js')"`
 - 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
 
-## 当前进度（截至 2026-05-29，repo 版本 1.1.5）
+## 当前进度（截至 2026-05-29，repo 版本 1.1.6）
 
 已完成的 fork 改动（见 CHANGELOG）：
 
 1. repo 名改为 `cbrepo`，manifest 顶层版本到 `1.1.4`
-2. **4KHDHub `1.0.7-cb5`** — 移植 Cloudstream FourKHDHub 解析（HubDrive/HubCloud/HubCDN/Hblinks/Pixeldrain/BuzzServer），并**修复快进跳回开头（无法 seek）问题**：见下方「技术要点」
+2. **4KHDHub `1.0.8-cb6`** — 移植 Cloudstream FourKHDHub 解析（HubDrive/HubCloud/HubCDN/Hblinks/Pixeldrain/BuzzServer）+ HubDrive 直链。**seek 问题仍未完全解决**（见下方「技术要点」与「seek 现状」）。
 3. UHDMovies `1.2.2-cb2` — 标题搜索 fallback + 参照 Cloudstream 重写 TV 集解析
 4. AnimePahe `1.0.1-cb1` — 日漫 TV 集 fallback
 5. 首批版本号 bump：Vixsrc / Vidlink / StreamFlix / DooFlix / HDHub4u 等
@@ -60,6 +60,22 @@
 - BuzzServer / HUBCDN 不动
 
 `getSeekScore`：R2/googleusercontent=100、Pixeldrain=95、未解析中间端点=15（垫底标 `No Seek?`）。
+
+## seek 现状（重要，cb6 更新）
+
+真机测试结论，**和最初假设不同**：
+
+- ✅ 缓存机制没问题：升 provider version + repo version 后，Nuvio 能正确重新拉到新代码（真机已看到 `HubDrive` 源出现，说明 cb5 已生效）。
+- ❌ seek 仍未解决，但**不是「Nuvio 拖不动 MKV」**：真机上「KPop Demon Hunters」里一个 **DownloadFile** 源**可以正常快进**，证明 Nuvio 能 seek，**能不能 seek 取决于具体源/主机，且无法从 URL 预测**。
+- 「鬼灭之刃 无限城」上出现的 FSL + HubDrive(r2.dev) 两个源都不能 seek，拖动回片头、还会闪 1 秒；但同一逻辑下别的片的 DownloadFile 能 seek。
+- 之前 cb4/cb5 加的 `Seek OK/No Seek?` 标签被证明不准（DownloadFile 被错标 No Seek 却能拖），cb6 已移除，改为按清晰度排序、清楚标主机名，让用户自己试。
+- 旁证：Cloudstream 播这些源时开头要「点一下跳过」且能拖，说明它的播放器/流程对 MKV seek 处理更完整。
+
+**下一步排查方向（给接手者）**：
+- 需要真机抓到「鬼灭之刃」各源**实际播放的最终 URL**（看 Nuvio 日志），确认 r2.dev/FSL 到底解析成了什么、Content-Type、是否 200 vs 206。
+- 对比「能 seek 的 DownloadFile 源」最终 URL 主机 vs「不能 seek 的源」，找出可 seek 主机的规律（疑似 googleusercontent/Google Drive 可 seek、某些 r2.dev 在 Nuvio 里不行）。
+- 研究 Cloudstream 播放器为何能 seek（是否播放前读取 MKV 末尾 Cues / 用了特定 ExoPlayer flag），看 Nuvio 端是否有对应设置。
+- ⚠️ 不要再用浏览器在后台自动播放整部 3GB 视频做 seek 测试（之前误开 pixelsee.app 播放器标签页，吵且重复下载）。要测 Range 用 `fetch(url,{headers:{Range:'bytes=0-100'}})` 看 status/headers 即可，别真播。
 
 ## 待真机验证（下一步第一件事）
 

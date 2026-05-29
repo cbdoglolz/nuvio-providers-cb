@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.6 - 2026-05-29
+
+- 4KHDHub provider bumped to `1.0.8-cb6`.
+- Removed the unreliable `Seek OK / Seek Maybe / No Seek?` labels from stream names/titles. Real-device testing showed they were inaccurate (a "Download File" source labeled "No Seek?" actually seeked fine), so they were misleading rather than helpful.
+- Stopped ordering by the guessed seek score; streams are now sorted by quality (resolution) instead, and no source type is artificially demoted.
+- Stream names are now `4KHDHub - <Source> <height>p` with `<Source> | <size>` in the title, so each host (HubDrive, FSL, Download File, Pixeldrain, etc.) is clearly identifiable for the user to pick.
+- Note: whether a given final link is seekable is host/file specific and cannot be reliably predicted from the URL; Nuvio itself can seek (confirmed on a "Download File" source), so this is left to the user to choose.
+
 ## 1.1.5 - 2026-05-29
 
 - 4KHDHub provider bumped to `1.0.7-cb5`.

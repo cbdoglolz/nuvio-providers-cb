@@ -717,13 +717,12 @@ function toNuvioStream(link, sourceMeta) {
   const meta = link.meta || {};
   const fallbackMeta = sourceMeta || {};
   const source = normalizeSourceName(link.source);
-  const seekHint = getSeekHint(source, link.url);
-  const seekScore = getSeekScore(source, link.url);
   const height = meta.height || fallbackMeta.height;
+  const bytes = meta.bytes || fallbackMeta.bytes || 0;
   return {
-    name: `4KHDHub - ${source} ${seekHint}${height ? ` ${height}p` : ""}`,
+    name: `4KHDHub - ${source}${height ? ` ${height}p` : ""}`,
     title: `${meta.title || fallbackMeta.title || "4KHDHub"}
-${source} | ${seekHint} | ${formatBytes(meta.bytes || fallbackMeta.bytes || 0)}`,
+${source} | ${formatBytes(bytes)}`,
     url: link.url,
     quality: height ? `${height}p` : void 0,
     headers: {
@@ -731,8 +730,7 @@ ${source} | ${seekHint} | ${formatBytes(meta.bytes || fallbackMeta.bytes || 0)}`
     },
     provider: "4khdhub",
     behaviorHints: {
-      bingeGroup: `4khdhub-${source}`,
-      seekScore
+      bingeGroup: `4khdhub-${source}`
     }
   };
 }
@@ -796,9 +794,9 @@ function getStreams(tmdbId, type, season, episode) {
     }));
     const results = yield Promise.all(streamPromises);
     return results.reduce((acc, val) => acc.concat(val), []).sort((a, b) => {
-      const aScore = a.behaviorHints && a.behaviorHints.seekScore || 0;
-      const bScore = b.behaviorHints && b.behaviorHints.seekScore || 0;
-      return bScore - aScore;
+      const aHeight = parseInt(a.quality) || 0;
+      const bHeight = parseInt(b.quality) || 0;
+      return bHeight - aHeight;
     });
   });
 }
