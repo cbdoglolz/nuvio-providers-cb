@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.24 - 2026-05-30
+
+- **Cinevibe `1.0.1-cb1`**: Added movie title fallbacks using TMDB original title and punctuation-normalized variants before giving up on the tokenized API request.
+- Added `Cloudflare.solve()` retry support for Cinevibe TMDB, stream API, and stream quality HEAD requests when 403/503 is returned.
+- Cinevibe remains movie-only as before; no TV support was added in this patch.
+
 ## 1.1.23 - 2026-05-30
 
 - **DahmerMovies `1.0.2-cb1`**: Added TMDB original-title and punctuation-normalized title fallbacks before giving up on a directory path.

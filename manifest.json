@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.23",
+  "version": "1.1.24",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -295,8 +295,8 @@
     {
       "id": "cinevibe",
       "name": "Cinevibe",
-      "description": "Cinevibe (Movies)",
-      "version": "1.0.0",
+      "description": "Cinevibe movie streams with title alias fallback and Cloudflare retry support.",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie"

@@ -20,6 +20,28 @@ const WORKING_HEADERS = {
 };
 
 // Utility Functions
+function fetchWithCfRetry(url, options = {}) {
+    return fetch(url, options).then(function(response) {
+        if (![403, 503].includes(response.status) || typeof Cloudflare === 'undefined' || !Cloudflare.solve) {
+            return response;
+        }
+
+        console.log(`[Cinevibe] Cloudflare challenge on ${url}, retrying with solved cookies.`);
+        return Cloudflare.solve(url).then(function(solution) {
+            const retryHeaders = {
+                ...(options.headers || {}),
+                ...(solution && solution.headers ? solution.headers : {})
+            };
+            if (solution && (solution.cookie || solution.cookies)) {
+                retryHeaders.Cookie = solution.cookie || solution.cookies;
+            }
+            if (solution && solution.userAgent) {
+                retryHeaders['User-Agent'] = solution.userAgent;
+            }
+            return fetch(url, { ...options, headers: retryHeaders });
+        });
+    });
+}
 
 /**
  * A 32-bit FNV-1a Hash Function
@@ -107,7 +129,7 @@ function getTMDBDetails(tmdbId, mediaType) {
     
     console.log(`[Cinevibe] Fetching TMDB details for ${mediaType} ID: ${tmdbId}`);
     
-    return fetch(url, {
+    return fetchWithCfRetry(url, {
         method: 'GET',
         headers: {
             'User-Agent': USER_AGENT,
@@ -128,6 +150,7 @@ function getTMDBDetails(tmdbId, mediaType) {
         
         return {
             title: title,
+            originalTitle: mediaType === 'tv' ? data.original_name : data.original_title,
             releaseYear: releaseYear,
             imdbId: imdbId
         };
@@ -135,6 +158,24 @@ function getTMDBDetails(tmdbId, mediaType) {
         console.error(`[Cinevibe] TMDB fetch error: ${error.message}`);
         throw error;
     });
+}
+
+function addUniqueTitle(titles, title) {
+    const clean = (title || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (!titles.some(item => item.toLowerCase() === key)) titles.push(clean);
+}
+
+function buildTitleVariants(mediaInfo) {
+    const titles = [];
+    [mediaInfo.title, mediaInfo.originalTitle].filter(Boolean).forEach(function(title) {
+        addUniqueTitle(titles, title);
+        addUniqueTitle(titles, title.replace(/[:._-]+/g, ' '));
+        addUniqueTitle(titles, title.replace(/[^\w\s]/g, ' '));
+        addUniqueTitle(titles, title.replace(/\s+\(\d{4}\)$/, ''));
+    });
+    return titles.slice(0, 8);
 }
 
 /**
@@ -224,7 +265,7 @@ function getQualityFromSource(source) {
 function detectStreamQuality(url) {
     console.log(`[Cinevibe] Detecting quality for: ${url.substring(0, 50)}...`);
 
-    return fetch(url, {
+    return fetchWithCfRetry(url, {
         method: 'HEAD',
         headers: WORKING_HEADERS
     }).then(function(response) {
@@ -324,7 +365,7 @@ function fetchStreams(tmdbId, mediaType, seasonNum, episodeNum, mediaInfo) {
 
     console.log(`[Cinevibe] Fetching streams from API...`);
 
-    return fetch(apiUrl, {
+    return fetchWithCfRetry(apiUrl, {
         method: 'GET',
         headers: WORKING_HEADERS
     }).then(function(response) {
@@ -422,9 +463,25 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
         if (!mediaInfo.title || !mediaInfo.releaseYear) {
             throw new Error('Could not extract title and release year from TMDB response');
         }
-        
-        // Fetch streams from Cinevibe API
-        return fetchStreams(tmdbId, mediaType, seasonNum, episodeNum, mediaInfo);
+
+        const titleVariants = buildTitleVariants(mediaInfo);
+        console.log(`[Cinevibe] Trying ${titleVariants.length} title variant(s).`);
+
+        let chain = Promise.resolve([]);
+        titleVariants.forEach(function(candidateTitle) {
+            chain = chain.then(function(streams) {
+                if (streams && streams.length > 0) return streams;
+                return fetchStreams(tmdbId, mediaType, seasonNum, episodeNum, {
+                    ...mediaInfo,
+                    title: candidateTitle
+                }).catch(function(error) {
+                    console.log(`[Cinevibe] Variant "${candidateTitle}" failed: ${error.message}`);
+                    return [];
+                });
+            });
+        });
+
+        return chain;
     }).catch(function(error) {
         console.error(`[Cinevibe] Scraping error: ${error.message}`);
         return [];
