@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0 - 2026-05-30
+
+Pruned dead or harmful providers after real-device testing (Project Hail Mary and batch local audit). **11 providers remain.**
+
+**Removed (10):**
+- **AnimeKai** — finds titles but MegaUp HLS cannot play in Nuvio (per-segment Referer / comma URLs).
+- **AnimePahe** — search proxy returns 429; direct site 403; no reliable path to streams.
+- **MovieBlast** — lists streams on device but playback fails (signed CDN URLs; not fixable in provider alone).
+- **DVDPlay** — still surfaces wrong titles (e.g. unrelated Indian releases for Western movies).
+- **Vidnest** — `first.vidnest.fun` backend returns HTTP 530.
+- **ShowBox** — requires UI cookie/token not available in Nuvio scraper settings.
+- **Castle** — API fetch/decrypt failures.
+- **Cinevibe** — API returns 401 Unauthorized.
+- **DahmerMovies** — source HTTP 403 from scraper network.
+- **AllMovieLand** — zero search hits on audit titles; heavy CF dependency.
+
+**Kept (11):** HDHub4u, UHDMovies, Vidlink, StreamFlix, MovieBox, 4KHDHub, Vixsrc, MoviesMod, YFlix, MalluMV (regional), MyCima (Arabic). Vixsrc/MoviesMod still need residential IP + `Cloudflare.solve()` on device.
+
 ## 1.1.25 - 2026-05-30
 
 - **AnimePahe `1.0.2-cb5`**: Rebuilt from `src/animepahe/` (Cursor; Codex sandbox could not run esbuild). Restored TMDB `external_ids` fallback via `getImdbId()` when details lookup omits IMDb id.
