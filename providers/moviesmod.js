@@ -88,6 +88,20 @@ function makeRequest(_0) {
     const response = yield fetch(url, __spreadProps(__spreadValues({}, options), {
       headers: __spreadValues(__spreadValues({}, defaultHeaders), options.headers)
     }));
+    if ((response.status === 403 || response.status === 503) && typeof Cloudflare !== "undefined" && Cloudflare.solve) {
+      console.log(`[MoviesMod] Cloudflare challenge detected for ${url}, requesting solver`);
+      const solved = yield Cloudflare.solve(url);
+      const retryHeaders = __spreadValues(__spreadValues({}, defaultHeaders), options.headers);
+      if (solved && solved.Cookie)
+        retryHeaders.Cookie = solved.Cookie;
+      if (solved && solved["User-Agent"])
+        retryHeaders["User-Agent"] = solved["User-Agent"];
+      const retry = yield fetch(url, __spreadProps(__spreadValues({}, options), { headers: retryHeaders }));
+      if (!retry.ok) {
+        throw new Error(`HTTP ${retry.status}: ${retry.statusText}`);
+      }
+      return retry;
+    }
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

@@ -1,6 +1,6 @@
 # 交接说明 (HANDOFF) — 给 Codex
 
-> 最后更新：**2026-05-30**，repo **`1.1.19`**，分支 **`main`**
+> 最后更新：**2026-05-30**，repo **`1.1.20`**，分支 **`main`**
 > 远端：`https://github.com/cbdoglolz/nuvio-providers-cb`（Nuvio 添加 cbrepo 用此地址，**不是** README 里的 tapframe 上游）
 
 ---
@@ -57,7 +57,7 @@ node -e "require('./providers/<name>.js').getStreams('872585','movie',1,1).then(
 | **4KHDHub** | 1.0.8-cb6 | ⚠️ seek 未解 | HubDrive→R2 直链已做；用户放弃继续追 seek；按清晰度排序 |
 | **AnimePahe** | 1.0.2-cb4 | ⚠️ 待真机复测 | 搜索/MAL 映射加强：TMDB title aliases、Season/Nth Season 回退、验证 8 个 MAL 候选；Kwik 直连失败后走 AnimePahe proxy |
 | **AnimeKai** | 1.1.3-cb5 | ⚠️ 待真机复测 | **能搜到新番、有源**；必须继续修。1.1.15 保留 MegaUp master playlist 作为 Auto fallback，同时保留解析出的清晰度 variant |
-| **Vixsrc / MoviesMod** | — | ❓ 真机 | 数据中心 IP 403，勿盲改 |
+| **Vixsrc / MoviesMod** | Vixsrc 1.0.2-cb2 / MoviesMod 1.0.2-cb1 | ❓ 真机 | 1.1.20 加 `Cloudflare.solve()` 403/503 retry；数据中心 IP 仍可能 403，需真机验证 |
 | **Dooflix** | 1.0.2-cb2 | ❌ 默认关闭 | API key 轮换 401，需用户从 App/源站提供新 key；1.1.19 默认关闭，避免无效搜索 |
 | **VidnestAnime** | 1.0.1-cb1 | ❌ 默认关闭 | 旧代码打 `backend.vidnest.fun`；当前公开 Vidnest 是 `vidnest.fun/anime/[ANILIST_ID]/[EP]/[SUB_OR_DUB]` embed 形态，不是旧 JSON 后端，需重写 |
 | **NetMirror** | 1.0.3-cb1 | ❌ 已默认关闭 | 源站限流，10 分钟占位视频 |
@@ -89,7 +89,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 ## 5. 真机测试清单（Codex 接手后优先问用户）
 
-- [ ] cbrepo 版本是否 **1.1.19**（删插件重加）
+- [ ] cbrepo 版本是否 **1.1.20**（删插件重加）
 - [ ] **Project Hail Mary**（687163）：UHDMovies / MovieBlast 修复是否生效
 - [ ] **Vidlink** 分辨率旁是否还有 Unknown
 - [ ] **Vixsrc** 住宅 IP 能否出流（本地 403）
@@ -150,6 +150,7 @@ c38883b / 5bc0885 / cce209a — 4KHDHub seek 相关（用户已 deprioritize）
 
 - node fetch + full_network：可测非 CF 站点
 - CF WAF（vixsrc/moviesmod/animekai.to）：数据中心 403，真机可能正常
+- 1.1.20：Vixsrc / MoviesMod 只有 `providers/*.js` 生成文件，没有 `src/` 源码目录；已直接给单文件 request helper 加 `Cloudflare.solve()` retry
 
 ---
 

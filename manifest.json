@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.1.19",
+  "version": "1.1.20",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -83,8 +83,8 @@
     {
       "id": "moviesmod",
       "name": "MoviesMod",
-      "description": "Movie and TV show streams from MoviesMod with multiple quality options",
-      "version": "1.0.1",
+      "description": "Movie and TV show streams from MoviesMod with Cloudflare retry support.",
+      "version": "1.0.2-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -189,8 +189,8 @@
     {
       "id": "vixsrc",
       "name": "Vixsrc",
-      "description": "Vixsrc M3U8 streaming with auto quality selection",
-      "version": "1.0.1-cb1",
+      "description": "Vixsrc M3U8 streaming with auto quality selection and Cloudflare retry support.",
+      "version": "1.0.2-cb2",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

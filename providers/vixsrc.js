@@ -60,6 +60,23 @@ function makeRequest(_0) {
         method: options.method || "GET",
         headers: defaultHeaders
       }, options));
+      if ((response.status === 403 || response.status === 503) && typeof Cloudflare !== "undefined" && Cloudflare.solve) {
+        console.log(`[Vixsrc] Cloudflare challenge detected for ${url}, requesting solver`);
+        const solved = yield Cloudflare.solve(url);
+        const retryHeaders = __spreadValues({}, defaultHeaders);
+        if (solved && solved.Cookie)
+          retryHeaders.Cookie = solved.Cookie;
+        if (solved && solved["User-Agent"])
+          retryHeaders["User-Agent"] = solved["User-Agent"];
+        const retryResponse = yield fetch(url, __spreadValues(__spreadValues({
+          method: options.method || "GET",
+          headers: retryHeaders
+        }, options), { headers: retryHeaders }));
+        if (!retryResponse.ok) {
+          throw new Error(`HTTP ${retryResponse.status}: ${retryResponse.statusText}`);
+        }
+        return retryResponse;
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

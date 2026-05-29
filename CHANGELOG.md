@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.20 - 2026-05-30
+
+- **Vixsrc `1.0.2-cb2`**: Added `Cloudflare.solve()` retry in the request helper for 403/503 responses, so real devices can solve challenges instead of returning zero streams immediately.
+- **MoviesMod `1.0.2-cb1`**: Added the same `Cloudflare.solve()` retry in its request helper. This is intentionally limited to request-layer recovery and does not change matching or extraction logic.
+- Both providers remain enabled but still need real-device testing because local/data-center traffic may be blocked by WAF.
+
 ## 1.1.19 - 2026-05-30
 
 - **DooFlix `1.0.2-cb2`**: Disabled by default. The provider uses a hard-coded API key that is known to rotate/return 401; it should stay off until a current key is supplied from the app/source.
