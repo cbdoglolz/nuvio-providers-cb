@@ -534,16 +534,73 @@ function expandNestedLinks(links, baseMeta) {
     return expanded;
   });
 }
+// HubDrive exposes a fetch-only "Direct/Instant Download" path that returns a
+// seekable Cloudflare R2 (.r2.dev) direct file URL via a small AJAX call. We
+// prefer it because the HubCloud route (hubcloud.foo) sits behind a Cloudflare
+// Turnstile challenge that plain fetch cannot pass, and the links it would
+// otherwise yield are not seekable.
+function extractHubDrive(hubDriveUrl, baseMeta) {
+  return __async(this, null, function* () {
+    try {
+      const base = getBaseUrl(hubDriveUrl);
+      if (!base)
+        return [];
+      let fileId = "";
+      const idFromPath = hubDriveUrl.match(/\/file\/([A-Za-z0-9]+)/);
+      if (idFromPath)
+        fileId = idFromPath[1];
+      if (!fileId) {
+        const pageHtml = yield fetchText(hubDriveUrl, { headers: { Referer: hubDriveUrl } });
+        if (pageHtml) {
+          const m = pageHtml.match(/id=["']down-id["'][^>]*>([^<]+)</);
+          if (m)
+            fileId = m[1].trim();
+        }
+      }
+      if (!fileId)
+        return [];
+      const ajaxUrl = `${base}/ajax.php?ajax=direct-download`;
+      const response = yield fetch(ajaxUrl, {
+        method: "POST",
+        headers: {
+          "User-Agent": USER_AGENT,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "XMLHttpRequest",
+          "Referer": hubDriveUrl,
+          "Origin": base
+        },
+        body: `id=${encodeURIComponent(fileId)}`
+      });
+      const json = yield response.json();
+      if (json && json.data && json.data.gd) {
+        const meta = __spreadProps(__spreadValues({}, baseMeta), {
+          bytes: json.data.s || baseMeta.bytes,
+          title: json.data.n || baseMeta.title
+        });
+        return [{ source: "HubDrive", url: json.data.gd, meta }];
+      }
+    } catch (e) {
+      console.log(`[4KHDHub] HubDrive direct download failed: ${e.message}`);
+    }
+    return [];
+  });
+}
 function extractResolvedLink(rawUrl, baseMeta) {
   return __async(this, null, function* () {
     if (!rawUrl)
       return [];
     let resolved = rawUrl;
-    if (resolved.includes("id=")) {
+    if (resolved.includes("id=") && !/\/file\/[A-Za-z0-9]+/.test(resolved)) {
       resolved = yield resolveRedirectUrl(resolved) || resolved;
     }
     const lower = resolved.toLowerCase();
-    if (lower.includes("hubdrive") || lower.includes("hubcloud"))
+    if (lower.includes("hubdrive")) {
+      const direct = yield extractHubDrive(resolved, baseMeta);
+      if (direct.length)
+        return direct;
+      return yield expandNestedLinks(yield extractHubCloud(resolved, baseMeta), baseMeta);
+    }
+    if (lower.includes("hubcloud"))
       return yield expandNestedLinks(yield extractHubCloud(resolved, baseMeta), baseMeta);
     if (lower.includes("hubcdn"))
       return yield extractHubCdn(resolved, baseMeta);

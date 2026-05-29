@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.5 - 2026-05-29
+
+- 4KHDHub provider bumped to `1.0.7-cb5`.
+- Real fix for "fast-forward jumps back to start": prefer the HubDrive direct path over HubCloud.
+- Verified against a live title (Demon Slayer: Infinity Castle): the HubCloud domain (`hubcloud.foo`) is behind a Cloudflare Turnstile challenge that plain `fetch` cannot pass, so the previous HubDrive→HubCloud routing produced non-seekable links.
+- Added `extractHubDrive`: extracts the file id from the HubDrive URL/page and POSTs to `<base>/ajax.php?ajax=direct-download` (`id=<id>`), then returns `data.gd` — a Cloudflare R2 (`*.r2.dev`) direct `.mkv` URL that supports HTTP Range and is therefore seekable. Confirmed stable across requests and needs no cookies/token.
+- HubDrive links now resolve via this direct path first and only fall back to the (Cloudflare-blocked) HubCloud route if it fails.
+
 ## 1.1.4 - 2026-05-29
 
 - 4KHDHub provider bumped to `1.0.6-cb4`.

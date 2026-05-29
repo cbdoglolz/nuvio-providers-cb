@@ -26,32 +26,47 @@
   - `node -e "require('./providers/<name>.js')"`
 - 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
 
-## 当前进度（截至 2026-05-29，repo 版本 1.1.4）
+## 当前进度（截至 2026-05-29，repo 版本 1.1.5）
 
 已完成的 fork 改动（见 CHANGELOG）：
 
 1. repo 名改为 `cbrepo`，manifest 顶层版本到 `1.1.4`
-2. **4KHDHub `1.0.6-cb4`** — 移植 Cloudstream FourKHDHub 解析（HubDrive/HubCloud/HubCDN/Hblinks/Pixeldrain/BuzzServer），并**修复快进跳回开头（无法 seek）问题**：见下方「技术要点」
+2. **4KHDHub `1.0.7-cb5`** — 移植 Cloudstream FourKHDHub 解析（HubDrive/HubCloud/HubCDN/Hblinks/Pixeldrain/BuzzServer），并**修复快进跳回开头（无法 seek）问题**：见下方「技术要点」
 3. UHDMovies `1.2.2-cb2` — 标题搜索 fallback + 参照 Cloudstream 重写 TV 集解析
 4. AnimePahe `1.0.1-cb1` — 日漫 TV 集 fallback
 5. 首批版本号 bump：Vixsrc / Vidlink / StreamFlix / DooFlix / HDHub4u 等
 
-## 技术要点：4KHDHub seek 修复（cb4）
+## 技术要点：4KHDHub seek 修复
 
-- **根因**：HubCloud 下载页按钮（FSL / Download File / S3 等）指向的是**中间跳转端点** —— `gamerxyt.com/dl.php?link=`、`360news4u.net/dl.php?link=`、`*.workers.dev/?id=`、`*.fans/?id=`、pixeldrain `/u/<id>`。这些端点不支持 HTTP Range，播放器一 seek 就重拉、从头播放。
-- **修复**：参照本仓库里能正常 seek 的 `providers/dvdplay.js` 的 `resolveHubCloudUrl`，在 `providers/4khdhub.js` 新增 `resolveFinalLink(rawUrl, depth)`，返回流之前把中间链接解析成**最终真实直链**：
-  - `dl.php?link=` 包装 → 取出内嵌真实 URL（`decodeURIComponent`）
-  - pixeldrain `/u/<id>` → `https://pixeldrain.net/api/file/<id>?download`
-  - `*.workers.dev/?id=` / `*.fans/?id=` → `redirect:"manual"` 手动跟随 302（最多 5 跳）
-  - 已是直链的 `googleusercontent` / `r2.cloudflarestorage.com` / `r2.dev` → 原样保留
-  - BuzzServer / HUBCDN **不动**，仍走各自原有解析器（在 `extractHubCloud` 返回前按 source 跳过）
-- **seek 评分** `getSeekScore`：已解析直链(googleusercontent/R2)=100，Pixeldrain=95，未解析的中间端点(`workers.dev/?id=`、`dl.php?link=`)=15（垫底并标 `No Seek?`）。
+### cb5（真正的修复，2026-05-29）—— 走 HubDrive 直链，绕开 Cloudflare
+
+用浏览器对真实片源（鬼灭之刃 无限城 / Demon Slayer Infinity Castle）实测得出：
+
+- **HubCloud 域名 `hubcloud.foo` 挂在 Cloudflare Turnstile 后面**，Nuvio 的普通 `fetch` 过不去 → 旧的 HubDrive→HubCloud 路由拿到的是非可 seek 链接，所以 cb4 没解决问题。
+- **HubDrive 有一条纯 fetch 可用、且终点可 seek 的路径**：
+  1. HubDrive 链接形如 `https://hubdrive.space/file/<id>`；`<id>` 从路径取（或页面 `<div id="down-id">` 取）。
+  2. `POST https://hubdrive.space/ajax.php?ajax=direct-download`，header 含 `Content-Type: application/x-www-form-urlencoded` + `X-Requested-With: XMLHttpRequest` + `Referer`=file 页，body `id=<id>`。
+  3. 返回 JSON：`data.gd` = `https://pub-xxxx.r2.dev/<hash>`（Cloudflare R2 直链 `.mkv`，**支持 Range、可 seek**，实测 HTML5 video `canSeek=true`）；`data.n`=文件名、`data.s`=字节数。
+  4. 已确认：无需 cookie/token，连续请求 `gd` 稳定。
+- 实现见 `providers/4khdhub.js` 的 `extractHubDrive()`；`extractResolvedLink` 里 HubDrive 优先走它，失败才回退 HubCloud。
+
+### cb4（保留，作为 HubCloud 那条路的兜底）
+
+`resolveFinalLink(rawUrl, depth)`：把 HubCloud 按钮的中间跳转端点解析成最终直链——
+- `gamerxyt.com/360news4u.net 的 dl.php?link=` → `decodeURIComponent` 取内嵌 URL
+- pixeldrain `/u/<id>` → `api/file/<id>?download`
+- `*.workers.dev/?id=` / `*.fans/?id=` → `redirect:"manual"` 跟随 302（≤5 跳）
+- `googleusercontent` / `r2.cloudflarestorage.com` / `r2.dev` → 原样
+- BuzzServer / HUBCDN 不动
+
+`getSeekScore`：R2/googleusercontent=100、Pixeldrain=95、未解析中间端点=15（垫底标 `No Seek?`）。
 
 ## 待真机验证（下一步第一件事）
 
-- [ ] 在 Nuvio 里把 cbrepo 刷新到 `1.1.4`，播放 4KHDHub 源，**测试快进是否还会跳回开头**
-- [ ] 若仍有不可 seek 的源：看它的 `name` 里是不是 `No Seek?`；如果可 seek 的源(googleusercontent/R2/Pixeldrain)排在前面但仍跳，需进一步抓该最终直链的响应头确认是否真支持 Range
-- [ ] 若 `workers.dev/?id=` 解析失败（仍返回中间链接），需要在真机抓一次该端点的真实响应，补全 `resolveFinalLink` 的解析分支
+- [ ] 在 Nuvio 里把 cbrepo 刷新到 `1.1.5`，播放 4KHDHub 的「鬼灭之刃 无限城」等片源，**测试快进是否还跳回开头**（预期：HubDrive 那条 R2 直链可正常 seek）
+- [ ] 如果 Nuvio 里看到的源名是 `4KHDHub - HubDrive ...`、URL 是 `*.r2.dev/...` 就对了
+- [ ] 若仍不行：抓 Nuvio 日志看实际播放的 URL；如果不是 r2.dev，说明详情页那条 HubDrive 链接没被正确识别/解析，需要看详情页 HTML 里 HubDrive 按钮的真实 href
+- [ ] 注意 r2.dev 的 `gd` 可能有时效（响应里有 `t` 时间戳）；getStreams 每次重新生成，正常播放无碍，但若「加入列表后过很久再播」失效属预期
 
 ## 下一步优先级（4KHDHub 通过后）
 
