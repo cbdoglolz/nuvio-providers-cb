@@ -281,41 +281,52 @@ function extractVideoSeed(finallink) {
 function extractInstantLink(finallink) {
   console.log("[UHDMovies] Extracting InstantLink: " + finallink);
 
-  try {
-    var urlObj = new URL(finallink);
-    var host = urlObj.host;
-    if (!host) {
-      host = finallink.includes("video-leech") ? "video-leech.pro" : "video-seed.pro";
-    }
-
-    var token = finallink.split("url=")[1];
-    if (!token) return Promise.resolve(null);
-
-    return fetch("https://" + host + "/api", {
-      method: "POST",
-      headers: {
-        "User-Agent": USER_AGENT,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "x-token": host,
-        "Referer": finallink
-      },
-      body: "keys=" + encodeURIComponent(token)
-    })
-      .then(function (res) { return res.text(); })
-      .then(function (text) {
-        var urlMatch = text.match(/url":"([^"]+)"/);
-        if (urlMatch) {
-          return urlMatch[1].replace(/\\\//g, "/");
+  return fetch(finallink, {
+    headers: { "User-Agent": USER_AGENT },
+    redirect: "follow"
+  })
+    .then(function (res) {
+      var resolved = res.url || finallink;
+      if (resolved.includes("url=")) {
+        var extracted = decodeURIComponent(resolved.split("url=").slice(1).join("url="));
+        if (extracted.startsWith("http")) {
+          return extracted;
         }
+      }
+
+      // Legacy video-seed hosts still expose a token API on some redirects.
+      try {
+        var urlObj = new URL(resolved);
+        var host = urlObj.host;
+        var token = resolved.split("url=")[1];
+        if (!token) return null;
+
+        return fetch("https://" + host + "/api", {
+          method: "POST",
+          headers: {
+            "User-Agent": USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded",
+            "x-token": host,
+            "Referer": resolved
+          },
+          body: "keys=" + encodeURIComponent(token)
+        })
+          .then(function (apiRes) { return apiRes.text(); })
+          .then(function (text) {
+            var urlMatch = text.match(/url":"([^"]+)"/);
+            if (urlMatch) {
+              return urlMatch[1].replace(/\\\//g, "/");
+            }
+            return null;
+          });
+      } catch (e) {
         return null;
-      })
-      .catch(function (error) {
-        console.error("[UHDMovies] InstantLink extraction failed:", error.message);
-        return null;
-      });
-  } catch (e) {
-    return Promise.resolve(null);
-  }
+      }
+    })
+    .catch(function (error) {
+      console.error("[UHDMovies] InstantLink extraction failed:", error.message);
+      return null;
+    });
 }
 
 function extractResumeBot(url) {

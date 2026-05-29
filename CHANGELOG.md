@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.10 - 2026-05-30
+
+- **HDHub4u `1.1.2-cb1`**: Search API moved from dead/blocked `search.pingora.fyi` to `search.hdhub4u.glass` (matches current Cloudstream). Oppenheimer now returns streams locally (was JSON parse error / HTML 403).
+- **UHDMovies `1.2.2-cb3`**: Driveseed "Instant Download" links go through `cdn.video-gen.xyz` → redirect to `video-seed.pro/?url=...`. Old code POSTed to the wrong host; now follows redirects and extracts the final direct URL (Oppenheimer: 0 → 13 streams locally).
+- AnimePahe / AnimeKai deprioritized per user (Kwik CF + MegaUp playback still failing on device).
+
 ## 1.1.9 - 2026-05-30
 
 - Repo bumped to `1.1.9`.

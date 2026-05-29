@@ -26,21 +26,20 @@
   - `node -e "require('./providers/<name>.js')"`
 - 本地环境连不上 TMDB / GitHub / 目标站点，`fetch` 会失败，**端到端必须在真机 Nuvio 里测**。
 
-## 当前进度（截至 2026-05-30，repo 版本 1.1.8）
+## 当前进度（截至 2026-05-30，repo 版本 1.1.10）
 
 > 重要工具发现：**本环境 node fetch 可以联网**（shell 加 full_network 权限即可），所以能在本地真实跑 `getStreams` / 探活 API（curl 会卡，但 node fetch 正常）。调试方法：临时给 provider 加 `module.exports.__debug = {...}` 导出内部函数，跑完删掉。
 
-### 多 provider 修复批次（进行中，按推荐顺序：动画/中文优先）
+### 多 provider 修复批次
 
-进度表见 Canvas：`~/.cursor/projects/c-Users-cbdog-Documents-New-project-nuvio-providers-cb/canvases/providers-fix-plan.canvas.tsx`
-
-- [x] **animepahe `1.0.2-cb2`**：后端探活全部正常；修电影标题匹配（原来要求完全相等→改 normalize+子串+优先Movie+回退原名搜索）、TV 验证失败回退首结果。**kwik 提取未能本地验证**（shell 直连这些域名会卡、WebFetch 会把 HTML 转 markdown 丢 data-src），若真机不能播需专查 kwik。
-- [x] **moviebox `1.1.1-cb1`**：电影本地实测原来返 0；根因是 MovieBox 把流从 `play-info`（现返回空 streams）挪到了 subject `get` 的 `data.resourceDetectors[].downloadUrl`（签名直链 MP4，实测 206/video/mp4 可 seek）。已改用 resourceDetectors，修了把 `h265` 误判成 `265p` 的清晰度 bug。**TV 仍不出**：剧集的 downloadUrl 为空，只给外部页面 resourceLink（ailok.pe/fzmovies.cms），需要再爬外站（暂缓）。**MovieBox 几乎没有中文音轨**（连 Breaking Bad 的 dubs 都没中文），不是好的中文源。
-- [—] **vidnest-anime**：上游后端挂了。`backend.vidnest.fun` DNS 已 ENOTFOUND；`first.vidnest.fun` 返 Cloudflare 530（源站不可达）。非代码问题，待后端恢复再看（可改基址为 first.vidnest.fun 但当前也 530）。
-- [—] **dooflix**：API key 轮换失效。`panel.watchkaroabhi.com` 返 401 "Unauthorized access"；现 key `qNhKLJiZVyoKdi9NCQGz8CIGrpUijujE` 已废。新 key 在 DooFlix App（包名 `com.king.moja`）里，需反编译 APK 才能拿到（key 也可走 `X-API-Key` header）。**等用户提供新 key**。
-- [?] **vixsrc / moviesmod**：本地无法验证——vixsrc.to / moviesmod 用 **Cloudflare WAF 拦数据中心 IP**（我测试服务器返 403 "Sorry, you have been blocked"）。**用户真机（住宅IP）很可能正常**。代码看着是新的，**不盲改**，需用户真机测；若真机也不行再要日志。
-- [?] **animekai**：动画专用 + animekai.to 有 Cloudflare；本地用非动画测无意义。难度高，需真机 + 动画标题验证。
-- 中文源：现有 provider 都不理想（moviebox 几乎无中文音轨），**后续考虑单独新增华语/国漫源**（已在 Canvas 标注）。
+- [—] **animepahe / animekai**：用户真机仍失败，**已跳过**（Kwik 403 / MegaUp 播放问题短期难稳）。
+- [x] **hdhub4u `1.1.2-cb1`**：搜索 API 从 `search.pingora.fyi`（403）改为 `search.hdhub4u.glass`。Oppenheimer 本地 9 条流。
+- [x] **uhdmovies `1.2.2-cb3`**：Instant Download 改跟 Cloudstream 一样 follow redirect 再取 `url=` 直链。Oppenheimer 本地 0→13 条流。
+- [x] **moviebox `1.1.1-cb1`**：电影 OK；TV/中文仍弱。
+- [x] **vidlink**：已可用，无需改。
+- [—] **vidnest-anime / dooflix**：上游/API key 挂了，跳过。
+- [?] **vixsrc / moviesmod**：Cloudflare 拦数据中心 IP，需真机测。
+- [?] **streamflix / yflix**：本地有流（Oppenheimer 4 / 1），待真机确认播放。
 
 ### 本地测试能力边界（重要）
 - **node fetch 能联网**，可本地跑 getStreams 验证**非 Cloudflare** 的 API 型 provider（已用于 animepahe/moviebox/dooflix/vidnest 诊断）。
