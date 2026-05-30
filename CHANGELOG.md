@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.7 - 2026-05-30
+
+- Manifest-only bump so Nuvio picks up 1.2.6 code if stuck on 1.2.5. Use jsdelivr manifest URL (see README).
+
 ## 1.2.6 - 2026-05-30
 
 - **HDHub4u `1.1.4-cb2`**: Faster fetching — prioritize Pixeldrain/direct links over HubCloud wrappers; max 3 extractors; HubCloud stops after 2 buttons; skip TV redirect blocks when episode links exist; HbLinks capped.

@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.2.6",
-  "updatedAt": "2026-05-30T12:00:00Z",
+  "version": "1.2.7",
+  "updatedAt": "2026-05-30T18:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
