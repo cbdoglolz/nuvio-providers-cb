@@ -204,6 +204,133 @@ function extractStreamFromPage(contentType, contentId, seasonNum, episodeNum) {
   });
 }
 
+function resolveM3u8Url(url, baseUrl) {
+  if (url.startsWith("http"))
+    return url;
+  try {
+    return new URL(url, baseUrl).href;
+  } catch (e) {
+    return url;
+  }
+}
+function getQualityFromResolution(resolution) {
+  if (!resolution)
+    return "Auto";
+  const parts = resolution.split("x").map(Number);
+  const height = parts[1] || parts[0];
+  if (height >= 2160)
+    return "4K";
+  if (height >= 1440)
+    return "1440p";
+  if (height >= 1080)
+    return "1080p";
+  if (height >= 720)
+    return "720p";
+  if (height >= 480)
+    return "480p";
+  if (height >= 360)
+    return "360p";
+  return "240p";
+}
+function formatBitrate(bps) {
+  if (!bps || bps <= 0)
+    return "";
+  if (bps >= 1e6)
+    return (bps / 1e6).toFixed(1) + " Mbps";
+  return Math.round(bps / 1e3) + " Kbps";
+}
+function parseMasterM3u8(content, baseUrl) {
+  const lines = content.split("\n").map((line) => line.trim()).filter((line) => line);
+  const streams = [];
+  let current = null;
+  for (const line of lines) {
+    if (line.startsWith("#EXT-X-STREAM-INF:")) {
+      current = { bandwidth: null, resolution: null, url: null };
+      const bw = line.match(/BANDWIDTH=(\d+)/i);
+      if (bw)
+        current.bandwidth = parseInt(bw[1], 10);
+      const res = line.match(/RESOLUTION=(\d+x\d+)/i);
+      if (res)
+        current.resolution = res[1];
+    } else if (current && !line.startsWith("#")) {
+      current.url = resolveM3u8Url(line, baseUrl);
+      streams.push(current);
+      current = null;
+    }
+  }
+  return streams;
+}
+function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
+  return __async(this, null, function* () {
+    const headers = {
+      Referer: BASE_URL,
+      "User-Agent": USER_AGENT,
+      Accept: "*/*"
+    };
+    try {
+      const response = yield makeRequest(masterPlaylistUrl, { headers });
+      const text = yield response.text();
+      const variants = parseMasterM3u8(text, masterPlaylistUrl);
+      if (variants.length === 0) {
+        console.log("[Vixsrc] Single-stream playlist, using Auto");
+        return [{
+          name: "Vixsrc",
+          title: displayTitle,
+          url: masterPlaylistUrl,
+          quality: "Auto",
+          headers,
+          provider: "vixsrc"
+        }];
+      }
+      console.log(`[Vixsrc] ${variants.length} quality variant(s)`);
+      const seen = /* @__PURE__ */ new Set();
+      const out = [];
+      variants.sort((a, b) => {
+        const ah = a.resolution ? parseInt(a.resolution.split("x")[1], 10) : 0;
+        const bh = b.resolution ? parseInt(b.resolution.split("x")[1], 10) : 0;
+        return bh - ah;
+      });
+      for (const v of variants) {
+        const quality = getQualityFromResolution(v.resolution);
+        if (seen.has(quality))
+          continue;
+        seen.add(quality);
+        const bitrate = formatBitrate(v.bandwidth);
+        out.push({
+          name: `Vixsrc - ${quality}`,
+          title: displayTitle,
+          url: v.url,
+          quality,
+          size: bitrate || void 0,
+          headers,
+          provider: "vixsrc"
+        });
+      }
+      return out.length ? out : [{
+        name: "Vixsrc",
+        title: displayTitle,
+        url: masterPlaylistUrl,
+        quality: "Auto",
+        headers,
+        provider: "vixsrc"
+      }];
+    } catch (e) {
+      console.log("[Vixsrc] Playlist parse failed, fallback Auto:", e.message);
+      return [{
+        name: "Vixsrc",
+        title: displayTitle,
+        url: masterPlaylistUrl,
+        quality: "Auto",
+        headers: {
+          Referer: BASE_URL,
+          "User-Agent": USER_AGENT
+        },
+        provider: "vixsrc"
+      }];
+    }
+  });
+}
+
 // src/vixsrc/subtitles.js
 function getSubtitles(subtitleApiUrl) {
   return __async(this, null, function* () {
@@ -254,19 +381,10 @@ function getStreams(tmdbId, mediaType = "movie", seasonNum = null, episodeNum = 
         return [];
       }
       const { masterPlaylistUrl, subtitleApiUrl } = streamData;
-      const subtitles = yield getSubtitles(subtitleApiUrl);
-      const nuvioStreams = [{
-        name: "Vixsrc",
-        title: "Auto Quality Stream",
-        url: masterPlaylistUrl,
-        quality: "Auto",
-        type: "direct",
-        headers: {
-          "Referer": BASE_URL,
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-        }
-      }];
-      console.log("[Vixsrc] Successfully processed 1 stream with Auto quality");
+      yield getSubtitles(subtitleApiUrl);
+      const displayTitle = year ? `${title} (${year})` : title;
+      const nuvioStreams = yield buildStreamsFromMaster(masterPlaylistUrl, displayTitle);
+      console.log(`[Vixsrc] Returning ${nuvioStreams.length} stream(s)`);
       return nuvioStreams;
     } catch (error) {
       console.error(`[Vixsrc] Error in getStreams: ${error.message}`);

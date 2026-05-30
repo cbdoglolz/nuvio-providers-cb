@@ -76,6 +76,12 @@ function postJson(url, jsonBody, extraHeaders) {
   });
 }
 
+function formatBitrate(bps) {
+  if (!bps || bps <= 0) return '';
+  if (bps >= 1e6) return (bps / 1e6).toFixed(1) + ' Mbps';
+  return Math.round(bps / 1e3) + ' Kbps';
+}
+
 // Enc/Dec helpers
 function encrypt(text) {
   return getJson(`${API}/enc-movies-flix?text=${encodeURIComponent(text)}`).then(j => j.result);
@@ -312,15 +318,20 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
         logRid(rid, `streams: deduped`, { count: dedupedStreams.length });
 
         // Convert to Nuvio format
-        const nuvioStreams = dedupedStreams.map(stream => ({
-          name: `YFlix ${stream.serverType || 'Server'} - ${stream.quality || 'Unknown'}`,
-          title: `${title}${year ? ` (${year})` : ''}${mediaType === 'tv' && seasonNum && episodeNum ? ` S${seasonNum}E${episodeNum}` : ''}`,
-          url: stream.url,
-          quality: stream.quality || 'Unknown',
-          size: 'Unknown',
-          headers: HEADERS,
-          provider: 'yflix'
-        }));
+        const nuvioStreams = dedupedStreams.map(stream => {
+          const q = stream.quality && stream.quality !== 'unknown' ? stream.quality : 'Auto';
+          const bitrate = formatBitrate(stream.bandwidth);
+          const entry = {
+            name: `YFlix ${stream.serverType || 'Server'} - ${q}`,
+            title: `${title}${year ? ` (${year})` : ''}${mediaType === 'tv' && seasonNum && episodeNum ? ` S${seasonNum}E${episodeNum}` : ''}`,
+            url: stream.url,
+            quality: q,
+            headers: HEADERS,
+            provider: 'yflix'
+          };
+          if (bitrate) entry.size = bitrate;
+          return entry;
+        });
 
         return nuvioStreams;
       });

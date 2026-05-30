@@ -123,6 +123,13 @@ function resolveUrl(url, baseUrl) {
     return url;
   }
 }
+function formatBitrate(bps) {
+  if (!bps || bps <= 0)
+    return "";
+  if (bps >= 1e6)
+    return (bps / 1e6).toFixed(1) + " Mbps";
+  return Math.round(bps / 1e3) + " Kbps";
+}
 function getQualityFromResolution(resolution) {
   if (!resolution)
     return "Auto";
@@ -185,18 +192,37 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
         }];
       }
       console.log(`[Vidlink] Found ${parsedStreams.length} quality variants`);
-      return parsedStreams.map((stream) => {
+      const seen = /* @__PURE__ */ new Set();
+      const out = [];
+      parsedStreams.sort((a, b) => {
+        const ah = a.resolution ? parseInt(a.resolution.split("x")[1], 10) : 0;
+        const bh = b.resolution ? parseInt(b.resolution.split("x")[1], 10) : 0;
+        return bh - ah;
+      });
+      for (const stream of parsedStreams) {
         const quality = getQualityFromResolution(stream.resolution);
-        return {
+        if (seen.has(quality))
+          continue;
+        seen.add(quality);
+        const bitrate = formatBitrate(stream.bandwidth);
+        out.push({
           name: `Vidlink - ${quality}`,
           title: mediaInfo.title,
           url: stream.url,
           quality,
-          size: "",
+          size: bitrate || void 0,
           headers: VIDLINK_HEADERS,
           provider: "vidlink"
-        };
-      });
+        });
+      }
+      return out.length ? out : [{
+        name: "Vidlink - Auto",
+        title: mediaInfo.title,
+        url: playlistUrl,
+        quality: "Auto",
+        headers: VIDLINK_HEADERS,
+        provider: "vidlink"
+      }];
     } catch (error) {
       console.error(`[Vidlink] Error fetching/parsing M3U8: ${error.message}`);
       return [{

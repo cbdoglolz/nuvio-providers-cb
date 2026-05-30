@@ -719,10 +719,9 @@ function toNuvioStream(link, sourceMeta) {
   const source = normalizeSourceName(link.source);
   const height = meta.height || fallbackMeta.height;
   const bytes = meta.bytes || fallbackMeta.bytes || 0;
-  return {
+  const stream = {
     name: `4KHDHub - ${source}${height ? ` ${height}p` : ""}`,
-    title: `${meta.title || fallbackMeta.title || "4KHDHub"}
-${source} | ${formatBytes(bytes)}`,
+    title: meta.title || fallbackMeta.title || "4KHDHub",
     url: link.url,
     quality: height ? `${height}p` : void 0,
     headers: {
@@ -733,6 +732,10 @@ ${source} | ${formatBytes(bytes)}`,
       bingeGroup: `4khdhub-${source}`
     }
   };
+  if (bytes > 0) {
+    stream.size = formatBytes(bytes);
+  }
+  return stream;
 }
 
 // src/4khdhub/index.js

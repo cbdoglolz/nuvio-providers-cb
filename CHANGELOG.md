@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.9 - 2026-05-30
+
+- **4KHDHub `1.0.11-cb1`**: Expose file size in `size` field (GB/MB), not only in title.
+- **Vixsrc `1.0.3-cb1`**: Parse master m3u8 for 1080p/720p/… variants; show estimated bitrate as `size` (Mbps).
+- **Vidlink `1.0.3-cb1`**: Dedupe quality variants; show bitrate when m3u8 lists bandwidth.
+- **YFlix `1.1.3-cb1`**: Remove `Unknown` size; show bitrate when available from m3u8.
+
 ## 1.2.8 - 2026-05-30
 
 - **HDHub4u `1.1.5-cb2`**: Fix over-aggressive cap that left only ~3 playback sources. Now tries up to 10 download links in batches of 3, stops when 8 streams found (Typesense title search unchanged at 15).
