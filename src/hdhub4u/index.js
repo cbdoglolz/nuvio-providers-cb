@@ -7,7 +7,9 @@ import {
 import { loadExtractor, getRedirectLinks } from './extractors.js';
 
 const EXTRACTOR_CONCURRENCY = 2;
-const MAX_LINKS_PER_REQUEST = 3;
+const BATCH_SIZE = 3;
+const MAX_URLS_TO_TRY = 10;
+const TARGET_STREAM_COUNT = 8;
 
 /** Prefer direct / fewer-hop hosts so we stop sooner on fast links. */
 function prioritizeExtractUrls(urls) {
@@ -54,6 +56,30 @@ async function search(query) {
   });
 }
 
+async function extractLinksInBatches(urls, referer) {
+  const ordered = prioritizeExtractUrls([...new Set(urls)]).slice(0, MAX_URLS_TO_TRY);
+  const seenUrls = new Set();
+  const finalLinks = [];
+
+  function addLinks(links) {
+    for (const link of links) {
+      if (!link.url || link.url.includes(".zip") || link.name?.toLowerCase().includes(".zip")) continue;
+      if (seenUrls.has(link.url)) continue;
+      seenUrls.add(link.url);
+      finalLinks.push(link);
+    }
+  }
+
+  for (let i = 0; i < ordered.length && finalLinks.length < TARGET_STREAM_COUNT; i += BATCH_SIZE) {
+    const batch = ordered.slice(i, i + BATCH_SIZE);
+    console.log(`[HDHub4u] Batch ${Math.floor(i / BATCH_SIZE) + 1}: resolving ${batch.length} link(s), have ${finalLinks.length} stream(s)`);
+    const results = await mapPool(batch, EXTRACTOR_CONCURRENCY, (url) => loadExtractor(url, referer));
+    addLinks(results.flat());
+  }
+
+  return finalLinks;
+}
+
 async function getDownloadLinks(mediaUrl, targetEpisode = null) {
   const domain = await getCurrentDomain();
   const response = await fetch(mediaUrl, { headers: { ...HEADERS, Referer: `${domain}/` } });
@@ -70,23 +96,11 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
         return href && (href.includes("hdstream4u") || href.includes("hubstream"));
     });
     
-    const initialLinks = prioritizeExtractUrls([...new Set([
-        ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
-        ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-    ])]).slice(0, MAX_LINKS_PER_REQUEST);
-    
-    console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
-    const results = await mapPool(initialLinks, EXTRACTOR_CONCURRENCY, url => loadExtractor(url, mediaUrl));
-    const allFinalLinks = results.flat();
-    
-    const seenUrls = new Set();
-    const uniqueFinalLinks = allFinalLinks.filter(link => {
-      if (!link.url || link.url.includes(".zip") || link.name?.toLowerCase().includes(".zip")) return false;
-      if (seenUrls.has(link.url)) return false;
-      seenUrls.add(link.url);
-      return true;
-    });
-    
+    const allUrls = [
+      ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
+      ...bodyLinks.map((i, el) => $(el).attr("href")).get()
+    ];
+    const uniqueFinalLinks = await extractLinksInBatches(allUrls, mediaUrl);
     return { finalLinks: uniqueFinalLinks, isMovie };
   } else {
     // TV Logic
@@ -148,9 +162,10 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
     const initialLinks = [];
     if (targetEpisode != null) {
       const epNum = parseInt(targetEpisode, 10);
-      const epLinks = prioritizeExtractUrls([...new Set(episodeLinksMap.get(epNum) || [])]).slice(0, MAX_LINKS_PER_REQUEST);
-      initialLinks.push(...epLinks.map(link => ({ url: link, episode: epNum })));
-      console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
+      const epUrls = [...new Set(episodeLinksMap.get(epNum) || [])];
+      console.log(`[HDHub4u] TV ep ${epNum}: ${epUrls.length} raw link(s) on page`);
+      const uniqueFinalLinks = await extractLinksInBatches(epUrls, mediaUrl);
+      return { finalLinks: uniqueFinalLinks.map((link) => ({ ...link, episode: epNum })), isMovie };
     } else {
       episodeLinksMap.forEach((links, epNum) => {
         const uniqueLinks = [...new Set(links)].slice(0, 2);

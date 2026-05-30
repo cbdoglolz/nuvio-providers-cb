@@ -1,6 +1,6 @@
 /**
  * hdhub4u - Built from src/hdhub4u/
- * Generated: 2026-05-30T08:28:28.719Z
+ * Generated: 2026-05-30T08:34:22.883Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -429,7 +429,7 @@ function hbLinksExtractor(url) {
       const response = yield fetch(url, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: url }) });
       const data = yield response.text();
       const $ = import_cheerio_without_node_native.default.load(data);
-      const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 3);
+      const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 6);
       const results = yield mapPool(links, 1, (l) => loadExtractor(l, url));
       return results.flat().map((link) => __spreadProps(__spreadValues({}, link), {
         source: `${link.source} Hblinks`
@@ -519,7 +519,7 @@ function hubCloudExtractor(url, referer) {
       const links = [];
       const elements = $("a.btn").get();
       let hubCloudBtnCount = 0;
-      const maxHubCloudButtons = 2;
+      const maxHubCloudButtons = 4;
       for (const element of elements) {
         if (hubCloudBtnCount >= maxHubCloudButtons)
           break;
@@ -644,7 +644,9 @@ function loadExtractor(_0) {
 
 // src/hdhub4u/index.js
 var EXTRACTOR_CONCURRENCY = 2;
-var MAX_LINKS_PER_REQUEST = 3;
+var BATCH_SIZE = 3;
+var MAX_URLS_TO_TRY = 10;
+var TARGET_STREAM_COUNT = 8;
 function prioritizeExtractUrls(urls) {
   const score = (url) => {
     const u = String(url || "").toLowerCase();
@@ -696,6 +698,31 @@ function search(query) {
     });
   });
 }
+function extractLinksInBatches(urls, referer) {
+  return __async(this, null, function* () {
+    const ordered = prioritizeExtractUrls([...new Set(urls)]).slice(0, MAX_URLS_TO_TRY);
+    const seenUrls = /* @__PURE__ */ new Set();
+    const finalLinks = [];
+    function addLinks(links) {
+      var _a;
+      for (const link of links) {
+        if (!link.url || link.url.includes(".zip") || ((_a = link.name) == null ? void 0 : _a.toLowerCase().includes(".zip")))
+          continue;
+        if (seenUrls.has(link.url))
+          continue;
+        seenUrls.add(link.url);
+        finalLinks.push(link);
+      }
+    }
+    for (let i = 0; i < ordered.length && finalLinks.length < TARGET_STREAM_COUNT; i += BATCH_SIZE) {
+      const batch = ordered.slice(i, i + BATCH_SIZE);
+      console.log(`[HDHub4u] Batch ${Math.floor(i / BATCH_SIZE) + 1}: resolving ${batch.length} link(s), have ${finalLinks.length} stream(s)`);
+      const results = yield mapPool(batch, EXTRACTOR_CONCURRENCY, (url) => loadExtractor(url, referer));
+      addLinks(results.flat());
+    }
+    return finalLinks;
+  });
+}
 function getDownloadLinks(mediaUrl, targetEpisode = null) {
   return __async(this, null, function* () {
     const domain = yield getCurrentDomain();
@@ -710,23 +737,11 @@ function getDownloadLinks(mediaUrl, targetEpisode = null) {
         const href = $(el).attr("href");
         return href && (href.includes("hdstream4u") || href.includes("hubstream"));
       });
-      const initialLinks = prioritizeExtractUrls([.../* @__PURE__ */ new Set([
+      const allUrls = [
         ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
         ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-      ])]).slice(0, MAX_LINKS_PER_REQUEST);
-      console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
-      const results = yield mapPool(initialLinks, EXTRACTOR_CONCURRENCY, (url) => loadExtractor(url, mediaUrl));
-      const allFinalLinks = results.flat();
-      const seenUrls = /* @__PURE__ */ new Set();
-      const uniqueFinalLinks = allFinalLinks.filter((link) => {
-        var _a;
-        if (!link.url || link.url.includes(".zip") || ((_a = link.name) == null ? void 0 : _a.toLowerCase().includes(".zip")))
-          return false;
-        if (seenUrls.has(link.url))
-          return false;
-        seenUrls.add(link.url);
-        return true;
-      });
+      ];
+      const uniqueFinalLinks = yield extractLinksInBatches(allUrls, mediaUrl);
       return { finalLinks: uniqueFinalLinks, isMovie };
     } else {
       const episodeLinksMap = /* @__PURE__ */ new Map();
@@ -784,9 +799,10 @@ function getDownloadLinks(mediaUrl, targetEpisode = null) {
       const initialLinks = [];
       if (targetEpisode != null) {
         const epNum = parseInt(targetEpisode, 10);
-        const epLinks = prioritizeExtractUrls([...new Set(episodeLinksMap.get(epNum) || [])]).slice(0, MAX_LINKS_PER_REQUEST);
-        initialLinks.push(...epLinks.map((link) => ({ url: link, episode: epNum })));
-        console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
+        const epUrls = [...new Set(episodeLinksMap.get(epNum) || [])];
+        console.log(`[HDHub4u] TV ep ${epNum}: ${epUrls.length} raw link(s) on page`);
+        const uniqueFinalLinks2 = yield extractLinksInBatches(epUrls, mediaUrl);
+        return { finalLinks: uniqueFinalLinks2.map((link) => __spreadProps(__spreadValues({}, link), { episode: epNum })), isMovie };
       } else {
         episodeLinksMap.forEach((links, epNum) => {
           const uniqueLinks = [...new Set(links)].slice(0, 2);

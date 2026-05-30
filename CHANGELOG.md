@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.8 - 2026-05-30
+
+- **HDHub4u `1.1.5-cb2`**: Fix over-aggressive cap that left only ~3 playback sources. Now tries up to 10 download links in batches of 3, stops when 8 streams found (Typesense title search unchanged at 15).
+
 ## 1.2.7 - 2026-05-30
 
 - Manifest-only bump so Nuvio picks up 1.2.6 code if stuck on 1.2.5. Use jsdelivr manifest URL (see README).

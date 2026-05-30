@@ -113,7 +113,7 @@ export async function hbLinksExtractor(url) {
         const response = await fetch(url, { headers: { ...HEADERS, Referer: url } });
         const data = await response.text();
         const $ = cheerio.load(data);
-        const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 3);
+        const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 6);
         const results = await mapPool(links, 1, (l) => loadExtractor(l, url));
         return results.flat().map(link => ({
             ...link,
@@ -199,7 +199,7 @@ export async function hubCloudExtractor(url, referer) {
     const links = [];
     const elements = $("a.btn").get();
     let hubCloudBtnCount = 0;
-    const maxHubCloudButtons = 2;
+    const maxHubCloudButtons = 4;
     for (const element of elements) {
       if (hubCloudBtnCount >= maxHubCloudButtons) break;
       const link = $(element).attr("href");
