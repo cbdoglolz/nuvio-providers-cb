@@ -118,10 +118,40 @@ function rapidEmbedHeaders(embedUrl) {
   }
 }
 
+/** Cloudstream Rapidshare: /media/ uses yflix.to Referer; playback uses embed host. */
+function playbackHeaders(embedUrl, streamUrl) {
+  const headers = Object.assign({}, HEADERS);
+  try {
+    const embed = new URL(embedUrl);
+    headers.Referer = embed.origin + '/';
+    headers.Origin = embed.origin;
+    if (/rapidshare\.cc/i.test(embed.hostname)) {
+      headers.Referer = 'https://rapidshare.cc/';
+      headers.Origin = 'https://rapidshare.cc';
+    }
+  } catch (e) {
+    // keep yflix.to defaults
+  }
+  if (streamUrl) {
+    try {
+      const streamHost = new URL(streamUrl).hostname.toLowerCase();
+      if (streamHost.startsWith('rrr.') && headers.Referer.indexOf('rapidshare') < 0) {
+        const parent = streamHost.replace(/^rrr\./, '');
+        if (/rapidshare/i.test(parent)) {
+          headers.Referer = 'https://' + parent + '/';
+          headers.Origin = 'https://' + parent;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return headers;
+}
+
 function decryptRapidMedia(embedUrl) {
   const media = embedUrl.replace('/e/', '/media/').replace('/e2/', '/media/');
-  const rapidHeaders = rapidEmbedHeaders(embedUrl);
-  return fetch(media, { headers: rapidHeaders })
+  return fetch(media, { headers: HEADERS })
     .then(response => {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -131,7 +161,7 @@ function decryptRapidMedia(embedUrl) {
     .then((mediaJson) => {
       const encrypted = mediaJson && mediaJson.result;
       if (!encrypted) throw new Error('No encrypted media result from RapidShare media endpoint');
-      return postJson(`${API}/dec-rapid`, { text: encrypted, agent: rapidHeaders['User-Agent'] });
+      return postJson(`${API}/dec-rapid`, { text: encrypted, agent: HEADERS['User-Agent'] });
     })
     .then(j => j.result);
 }
@@ -259,7 +289,7 @@ function formatStreamsData(rapidResult) {
       if (fileUrl) {
         streams.push({
           url: fileUrl,
-          quality: fileUrl.includes('.m3u8') ? 'Adaptive' : 'unknown',
+          quality: fileUrl.includes('.m3u8') ? 'Auto' : 'unknown',
           type: fileUrl.includes('.m3u8') ? 'hls' : 'file',
           provider: 'rapidshare',
         });
@@ -314,19 +344,17 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
                 logRid(rid, `rapid.media → dec-rapid`, { lid, host: decrypted.url });
                 return decryptRapidMedia(decrypted.url)
                   .then(rapidData => formatStreamsData(rapidData))
-                  .then(formatted => enhanceStreamsWithQuality(formatted.streams)
-                    .then(enhanced => {
-                      enhanced.forEach(s => {
-                        s.serverType = serverType;
-                        s.serverKey = serverKey;
-                        s.serverLid = lid;
-                        s.embedUrl = decrypted.url;
-                        allStreams.push(s);
-                      });
-                      allSubtitles.push(...formatted.subtitles);
-                      allThumbnails.push(...formatted.thumbnails);
-                    })
-                  );
+                  .then(formatted => {
+                    formatted.streams.forEach(s => {
+                      s.serverType = serverType;
+                      s.serverKey = serverKey;
+                      s.serverLid = lid;
+                      s.embedUrl = decrypted.url;
+                      allStreams.push(s);
+                    });
+                    allSubtitles.push(...formatted.subtitles);
+                    allThumbnails.push(...formatted.thumbnails);
+                  });
               }
               return null;
             })
@@ -351,17 +379,16 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
         // Convert to Nuvio format
         const nuvioStreams = dedupedStreams.map(stream => {
           const q = stream.quality && stream.quality !== 'unknown' ? stream.quality : 'Auto';
-          const bitrate = formatBitrate(stream.bandwidth);
+          const serverLabel = stream.serverKey ? `Server ${stream.serverKey}` : (stream.serverType || 'Server');
           const entry = {
-            name: `YFlix ${stream.serverType || 'Server'} - ${q}`,
+            name: `YFlix ${serverLabel} - ${q}`,
             title: `${title}${year ? ` (${year})` : ''}${mediaType === 'tv' && seasonNum && episodeNum ? ` S${seasonNum}E${episodeNum}` : ''}`,
             url: stream.url,
             quality: q,
             type: stream.url && stream.url.includes('.m3u8') ? 'direct' : undefined,
-            headers: stream.embedUrl ? rapidEmbedHeaders(stream.embedUrl) : HEADERS,
+            headers: playbackHeaders(stream.embedUrl, stream.url),
             provider: 'yflix'
           };
-          if (bitrate) entry.size = bitrate;
           return entry;
         });
 

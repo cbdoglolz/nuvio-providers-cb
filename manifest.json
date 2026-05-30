@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.3.1",
-  "updatedAt": "2026-05-31T00:00:00Z",
+  "version": "1.3.2",
+  "updatedAt": "2026-05-31T01:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -151,7 +151,7 @@
       "id": "yflix",
       "name": "YFlix",
       "description": "YFlix streaming",
-      "version": "1.1.5-cb1",
+      "version": "1.1.6-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

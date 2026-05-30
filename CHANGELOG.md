@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2 - 2026-05-31
+
+- **YFlix `1.1.6-cb1`**: Fix rapid playback — fetch `/media/` with yflix.to Referer (Cloudstream pattern); set playback Referer to embed/CDN host; return master m3u8 only (no variant split).
+
 ## 1.3.1 - 2026-05-31
 
 - **Vidlink `1.0.5-cb1`**: When CDN blocks server-side m3u8 fetch (403), still return the master playlist URL so Nuvio can play on device.
