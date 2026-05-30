@@ -297,50 +297,14 @@ function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
       const response = yield makeRequest(masterPlaylistUrl, { headers });
       const text = yield response.text();
       if (text.indexOf("#EXTM3U") < 0) {
-        console.log("[Vixsrc] Invalid master playlist body");
-        return [masterStream];
+        console.log("[Vixsrc] Invalid master playlist body — still returning master URL");
+      } else {
+        console.log("[Vixsrc] Master playlist OK — single adaptive stream for playback");
       }
-      const variants = parseMasterM3u8(text, masterPlaylistUrl).filter(
-        (v) => v.url && (v.resolution || String(v.url).indexOf("type=video") >= 0)
-      );
-      if (variants.length === 0) {
-        console.log("[Vixsrc] No video variants; using master adaptive playlist");
-        return [masterStream];
-      }
-      const out = [masterStream];
-      const seen = /* @__PURE__ */ new Set();
-      variants.sort((a, b) => {
-        const ah = a.resolution ? parseInt(a.resolution.split("x")[1], 10) : 0;
-        const bh = b.resolution ? parseInt(b.resolution.split("x")[1], 10) : 0;
-        return bh - ah;
-      });
-      for (const v of variants) {
-        const quality = getQualityFromResolution(v.resolution);
-        if (seen.has(quality))
-          continue;
-        const ok = yield validateM3u8Url(v.url, headers);
-        if (!ok) {
-          console.log(`[Vixsrc] Skip ${quality}: variant URL not reachable`);
-          continue;
-        }
-        seen.add(quality);
-        out.push({
-          name: `Vixsrc - ${quality}`,
-          title: displayTitle,
-          url: v.url,
-          quality,
-          size: formatBitrate(v.bandwidth) || void 0,
-          type: "direct",
-          headers,
-          provider: "vixsrc"
-        });
-      }
-      console.log(`[Vixsrc] Returning ${out.length} stream(s) (master + validated variants)`);
-      return out;
     } catch (e) {
-      console.log("[Vixsrc] Playlist parse failed, master only:", e.message);
-      return [masterStream];
+      console.log("[Vixsrc] Master playlist probe failed, returning URL anyway:", e.message);
     }
+    return [masterStream];
   });
 }
 

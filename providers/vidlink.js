@@ -215,15 +215,14 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
       const response = yield makeRequest(playlistUrl, { headers: plHeaders });
       const m3u8Content = yield response.text();
       if (m3u8Content.indexOf("#EXTM3U") < 0) {
-        console.log("[Vidlink] Playlist response is not valid m3u8");
-        return [];
+        console.log("[Vidlink] Playlist response is not valid m3u8 — using API playlist URL");
+        return [masterStream];
       }
       console.log(`[Vidlink] Parsing M3U8 content`);
       const parsedStreams = parseM3U8(m3u8Content, playlistUrl);
       if (parsedStreams.length === 0) {
         console.log("[Vidlink] Media playlist — using master URL");
-        const ok = yield validateM3u8Url(playlistUrl, plHeaders);
-        return ok ? [masterStream] : [];
+        return [masterStream];
       }
       console.log(`[Vidlink] Found ${parsedStreams.length} quality variants`);
       const seen = /* @__PURE__ */ new Set();
@@ -258,7 +257,8 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
       return out;
     } catch (error) {
       console.error(`[Vidlink] Error fetching/parsing M3U8: ${error.message}`);
-      return [];
+      console.log("[Vidlink] Returning master playlist URL (CDN may block server; device can retry)");
+      return [masterStream];
     }
   });
 }

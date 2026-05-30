@@ -97,13 +97,41 @@ function parseHtml(html) {
   return postJson(`${API}/parse-html`, { text: html }).then(j => j.result);
 }
 
+function isRapidEmbedUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    return /rapidshare/i.test(new URL(url).hostname);
+  } catch (e) {
+    return /rapidshare/i.test(url);
+  }
+}
+
+function rapidEmbedHeaders(embedUrl) {
+  try {
+    const origin = new URL(embedUrl).origin;
+    return Object.assign({}, HEADERS, {
+      Referer: origin + '/',
+      Origin: origin
+    });
+  } catch (e) {
+    return HEADERS;
+  }
+}
+
 function decryptRapidMedia(embedUrl) {
   const media = embedUrl.replace('/e/', '/media/').replace('/e2/', '/media/');
-  return getJson(media)
+  const rapidHeaders = rapidEmbedHeaders(embedUrl);
+  return fetch(media, { headers: rapidHeaders })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    })
     .then((mediaJson) => {
       const encrypted = mediaJson && mediaJson.result;
       if (!encrypted) throw new Error('No encrypted media result from RapidShare media endpoint');
-      return postJson(`${API}/dec-rapid`, { text: encrypted, agent: HEADERS['User-Agent'] });
+      return postJson(`${API}/dec-rapid`, { text: encrypted, agent: rapidHeaders['User-Agent'] });
     })
     .then(j => j.result);
 }
@@ -282,8 +310,8 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
               return decrypt(embedResp.result);
             })
             .then(decrypted => {
-              if (decrypted && typeof decrypted === 'object' && decrypted.url && decrypted.url.includes('rapidshare.cc')) {
-                logRid(rid, `rapid.media → dec-rapid`, { lid });
+              if (decrypted && typeof decrypted === 'object' && decrypted.url && isRapidEmbedUrl(decrypted.url)) {
+                logRid(rid, `rapid.media → dec-rapid`, { lid, host: decrypted.url });
                 return decryptRapidMedia(decrypted.url)
                   .then(rapidData => formatStreamsData(rapidData))
                   .then(formatted => enhanceStreamsWithQuality(formatted.streams)
@@ -292,6 +320,7 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
                         s.serverType = serverType;
                         s.serverKey = serverKey;
                         s.serverLid = lid;
+                        s.embedUrl = decrypted.url;
                         allStreams.push(s);
                       });
                       allSubtitles.push(...formatted.subtitles);
@@ -329,7 +358,7 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
             url: stream.url,
             quality: q,
             type: stream.url && stream.url.includes('.m3u8') ? 'direct' : undefined,
-            headers: HEADERS,
+            headers: stream.embedUrl ? rapidEmbedHeaders(stream.embedUrl) : HEADERS,
             provider: 'yflix'
           };
           if (bitrate) entry.size = bitrate;

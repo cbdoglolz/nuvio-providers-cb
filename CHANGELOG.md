@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1 - 2026-05-31
+
+- **Vidlink `1.0.5-cb1`**: When CDN blocks server-side m3u8 fetch (403), still return the master playlist URL so Nuvio can play on device.
+- **Vixsrc `1.0.5-cb1`**: Return only one master adaptive stream (no separate variant URLs that often fail in-app).
+- **YFlix `1.1.5-cb1`**: Support `rapidshareee.site` (and other rapidshare hosts), not only `rapidshare.cc`; send embed-origin Referer on rapid media requests.
+
 ## 1.3.0 - 2026-05-30
 
 - **Vixsrc / Vidlink / YFlix**: Fix playback “resource error” on new releases (e.g. Project Hail Mary) — restore `type: "direct"`, keep master adaptive m3u8, validate variant URLs, correct Referer/Origin for CDN playlists.
