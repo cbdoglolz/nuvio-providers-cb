@@ -1,7 +1,7 @@
 import cheerio from 'cheerio-without-node-native';
 import CryptoJS from 'crypto-js';
 import { HEADERS, MAIN_URL } from './constants.js';
-import { atob, rot13, cleanTitle } from './utils.js';
+import { atob, rot13, cleanTitle, mapPool } from './utils.js';
 
 export async function getRedirectLinks(url) {
   try {
@@ -113,8 +113,8 @@ export async function hbLinksExtractor(url) {
         const response = await fetch(url, { headers: { ...HEADERS, Referer: url } });
         const data = await response.text();
         const $ = cheerio.load(data);
-        const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get();
-        const results = await Promise.all(links.map(l => loadExtractor(l, url)));
+        const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 3);
+        const results = await mapPool(links, 1, (l) => loadExtractor(l, url));
         return results.flat().map(link => ({
             ...link,
             source: `${link.source} Hblinks`
@@ -198,12 +198,16 @@ export async function hubCloudExtractor(url, referer) {
     
     const links = [];
     const elements = $("a.btn").get();
+    let hubCloudBtnCount = 0;
+    const maxHubCloudButtons = 2;
     for (const element of elements) {
+      if (hubCloudBtnCount >= maxHubCloudButtons) break;
       const link = $(element).attr("href");
       const text = $(element).text().toLowerCase();
       const fileName = header || headerDetails || "Unknown";
       
       if (text.includes("download file") || text.includes("fsl server") || text.includes("s3 server") || text.includes("fslv2") || text.includes("mega server")) {
+        hubCloudBtnCount += 1;
         let label = "HubCloud";
         if (text.includes("fsl server")) label = "HubCloud - FSL";
         else if (text.includes("s3 server")) label = "HubCloud - S3";
@@ -211,7 +215,9 @@ export async function hubCloudExtractor(url, referer) {
         else if (text.includes("mega server")) label = "HubCloud - Mega";
         
         links.push({ source: `${label} ${labelExtras}`, quality, url: link, size: sizeInBytes, fileName });
+        if (text.includes("download file") || text.includes("fsl server")) continue;
       } else if (text.includes("buzzserver")) {
+        hubCloudBtnCount += 1;
         try {
           const buzzResp = await fetch(`${link}/download`, { method: "GET", headers: { ...HEADERS, Referer: link }, redirect: "manual" });
           let dlink = buzzResp.headers.get("hx-redirect") || buzzResp.headers.get("HX-Redirect");
@@ -225,6 +231,7 @@ export async function hubCloudExtractor(url, referer) {
           }
         } catch (e) {}
       } else if (text.includes("10gbps")) {
+        hubCloudBtnCount += 1;
           try {
               const resp = await fetch(link, { method: "GET", redirect: "manual" });
               const loc = resp.headers.get("location");
@@ -234,9 +241,11 @@ export async function hubCloudExtractor(url, referer) {
               }
           } catch (e) {}
       } else if (link && link.includes("pixeldra")) {
+        hubCloudBtnCount += 1;
         const results = await pixelDrainExtractor(link);
         links.push(...results.map(l => ({ ...l, source: `${l.source} ${labelExtras}`, size: sizeInBytes, fileName })));
       } else if (link && !link.includes("magnet:") && link.startsWith("http")) {
+        hubCloudBtnCount += 1;
         const extracted = await loadExtractor(link, finalUrl);
         links.push(...extracted.map(l => ({ ...l, quality: l.quality || quality })));
       }

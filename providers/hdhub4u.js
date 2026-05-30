@@ -1,6 +1,6 @@
 /**
  * hdhub4u - Built from src/hdhub4u/
- * Generated: 2026-05-30T07:17:12.065Z
+ * Generated: 2026-05-30T08:28:28.719Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -429,8 +429,8 @@ function hbLinksExtractor(url) {
       const response = yield fetch(url, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: url }) });
       const data = yield response.text();
       const $ = import_cheerio_without_node_native.default.load(data);
-      const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get();
-      const results = yield Promise.all(links.map((l) => loadExtractor(l, url)));
+      const links = $("h3 a, h5 a, div.entry-content p a").map((i, el) => $(el).attr("href")).get().slice(0, 3);
+      const results = yield mapPool(links, 1, (l) => loadExtractor(l, url));
       return results.flat().map((link) => __spreadProps(__spreadValues({}, link), {
         source: `${link.source} Hblinks`
       }));
@@ -518,11 +518,16 @@ function hubCloudExtractor(url, referer) {
       })();
       const links = [];
       const elements = $("a.btn").get();
+      let hubCloudBtnCount = 0;
+      const maxHubCloudButtons = 2;
       for (const element of elements) {
+        if (hubCloudBtnCount >= maxHubCloudButtons)
+          break;
         const link = $(element).attr("href");
         const text = $(element).text().toLowerCase();
         const fileName = header || headerDetails || "Unknown";
         if (text.includes("download file") || text.includes("fsl server") || text.includes("s3 server") || text.includes("fslv2") || text.includes("mega server")) {
+          hubCloudBtnCount += 1;
           let label = "HubCloud";
           if (text.includes("fsl server"))
             label = "HubCloud - FSL";
@@ -533,7 +538,10 @@ function hubCloudExtractor(url, referer) {
           else if (text.includes("mega server"))
             label = "HubCloud - Mega";
           links.push({ source: `${label} ${labelExtras}`, quality, url: link, size: sizeInBytes, fileName });
+          if (text.includes("download file") || text.includes("fsl server"))
+            continue;
         } else if (text.includes("buzzserver")) {
+          hubCloudBtnCount += 1;
           try {
             const buzzResp = yield fetch(`${link}/download`, { method: "GET", headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: link }), redirect: "manual" });
             let dlink = buzzResp.headers.get("hx-redirect") || buzzResp.headers.get("HX-Redirect");
@@ -546,6 +554,7 @@ function hubCloudExtractor(url, referer) {
           } catch (e) {
           }
         } else if (text.includes("10gbps")) {
+          hubCloudBtnCount += 1;
           try {
             const resp = yield fetch(link, { method: "GET", redirect: "manual" });
             const loc = resp.headers.get("location");
@@ -556,9 +565,11 @@ function hubCloudExtractor(url, referer) {
           } catch (e) {
           }
         } else if (link && link.includes("pixeldra")) {
+          hubCloudBtnCount += 1;
           const results = yield pixelDrainExtractor(link);
           links.push(...results.map((l) => __spreadProps(__spreadValues({}, l), { source: `${l.source} ${labelExtras}`, size: sizeInBytes, fileName })));
         } else if (link && !link.includes("magnet:") && link.startsWith("http")) {
+          hubCloudBtnCount += 1;
           const extracted = yield loadExtractor(link, finalUrl);
           links.push(...extracted.map((l) => __spreadProps(__spreadValues({}, l), { quality: l.quality || quality })));
         }
@@ -633,7 +644,32 @@ function loadExtractor(_0) {
 
 // src/hdhub4u/index.js
 var EXTRACTOR_CONCURRENCY = 2;
-var MAX_LINKS_PER_REQUEST = 5;
+var MAX_LINKS_PER_REQUEST = 3;
+function prioritizeExtractUrls(urls) {
+  const score = (url) => {
+    const u = String(url || "").toLowerCase();
+    if (u.includes("pixeldrain"))
+      return 0;
+    if (u.includes("hdstream4u"))
+      return 1;
+    if (u.includes("hubcdn"))
+      return 2;
+    if (u.includes("hubdrive"))
+      return 3;
+    if (u.includes("streamtape"))
+      return 4;
+    if (u.includes("hubstream") || u.includes("vidstack"))
+      return 5;
+    if (u.includes("hblinks") || u.includes("hubstream.dad"))
+      return 6;
+    if (u.includes("hubcloud"))
+      return 8;
+    if (u.includes("?id=") || u.includes("techyboy") || u.includes("gadgetsweb"))
+      return 9;
+    return 5;
+  };
+  return [...urls].sort((a, b) => score(a) - score(b));
+}
 function search(query) {
   return __async(this, null, function* () {
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -674,10 +710,10 @@ function getDownloadLinks(mediaUrl, targetEpisode = null) {
         const href = $(el).attr("href");
         return href && (href.includes("hdstream4u") || href.includes("hubstream"));
       });
-      const initialLinks = [.../* @__PURE__ */ new Set([
+      const initialLinks = prioritizeExtractUrls([.../* @__PURE__ */ new Set([
         ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
         ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-      ])].slice(0, MAX_LINKS_PER_REQUEST);
+      ])]).slice(0, MAX_LINKS_PER_REQUEST);
       console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
       const results = yield mapPool(initialLinks, EXTRACTOR_CONCURRENCY, (url) => loadExtractor(url, mediaUrl));
       const allFinalLinks = results.flat();
@@ -719,8 +755,10 @@ function getDownloadLinks(mediaUrl, targetEpisode = null) {
           }
         }
       });
-      if (directLinkBlocks.length > 0) {
-        yield mapPool(directLinkBlocks.slice(0, 3), EXTRACTOR_CONCURRENCY, (blockUrl) => __async(this, null, function* () {
+      const epNumForBlocks = targetEpisode != null ? parseInt(targetEpisode, 10) : null;
+      const hasEpisodeLinks = epNumForBlocks != null && (episodeLinksMap.get(epNumForBlocks) || []).length > 0;
+      if (directLinkBlocks.length > 0 && !hasEpisodeLinks) {
+        yield mapPool(directLinkBlocks.slice(0, 1), EXTRACTOR_CONCURRENCY, (blockUrl) => __async(this, null, function* () {
           try {
             const resolvedUrl = yield getRedirectLinks(blockUrl);
             if (!resolvedUrl)
@@ -746,7 +784,7 @@ function getDownloadLinks(mediaUrl, targetEpisode = null) {
       const initialLinks = [];
       if (targetEpisode != null) {
         const epNum = parseInt(targetEpisode, 10);
-        const epLinks = [...new Set(episodeLinksMap.get(epNum) || [])].slice(0, MAX_LINKS_PER_REQUEST);
+        const epLinks = prioritizeExtractUrls([...new Set(episodeLinksMap.get(epNum) || [])]).slice(0, MAX_LINKS_PER_REQUEST);
         initialLinks.push(...epLinks.map((link) => ({ url: link, episode: epNum })));
         console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
       } else {

@@ -4,10 +4,28 @@ import {
   getCurrentDomain, getTMDBDetails, findBestTitleMatch, 
   extractServerName, formatBytes, mapPool
 } from './utils.js';
+import { loadExtractor, getRedirectLinks } from './extractors.js';
 
 const EXTRACTOR_CONCURRENCY = 2;
-const MAX_LINKS_PER_REQUEST = 5;
-import { loadExtractor, getRedirectLinks } from './extractors.js';
+const MAX_LINKS_PER_REQUEST = 3;
+
+/** Prefer direct / fewer-hop hosts so we stop sooner on fast links. */
+function prioritizeExtractUrls(urls) {
+  const score = (url) => {
+    const u = String(url || "").toLowerCase();
+    if (u.includes("pixeldrain")) return 0;
+    if (u.includes("hdstream4u")) return 1;
+    if (u.includes("hubcdn")) return 2;
+    if (u.includes("hubdrive")) return 3;
+    if (u.includes("streamtape")) return 4;
+    if (u.includes("hubstream") || u.includes("vidstack")) return 5;
+    if (u.includes("hblinks") || u.includes("hubstream.dad")) return 6;
+    if (u.includes("hubcloud")) return 8;
+    if (u.includes("?id=") || u.includes("techyboy") || u.includes("gadgetsweb")) return 9;
+    return 5;
+  };
+  return [...urls].sort((a, b) => score(a) - score(b));
+}
 
 async function search(query) {
   const today = (new Date()).toISOString().split("T")[0];
@@ -52,10 +70,10 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
         return href && (href.includes("hdstream4u") || href.includes("hubstream"));
     });
     
-    const initialLinks = [...new Set([
+    const initialLinks = prioritizeExtractUrls([...new Set([
         ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
         ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-    ])].slice(0, MAX_LINKS_PER_REQUEST);
+    ])]).slice(0, MAX_LINKS_PER_REQUEST);
     
     console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
     const results = await mapPool(initialLinks, EXTRACTOR_CONCURRENCY, url => loadExtractor(url, mediaUrl));
@@ -102,8 +120,11 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
       }
     });
     
-    if (directLinkBlocks.length > 0) {
-        await mapPool(directLinkBlocks.slice(0, 3), EXTRACTOR_CONCURRENCY, async (blockUrl) => {
+    const epNumForBlocks = targetEpisode != null ? parseInt(targetEpisode, 10) : null;
+    const hasEpisodeLinks = epNumForBlocks != null && (episodeLinksMap.get(epNumForBlocks) || []).length > 0;
+
+    if (directLinkBlocks.length > 0 && !hasEpisodeLinks) {
+        await mapPool(directLinkBlocks.slice(0, 1), EXTRACTOR_CONCURRENCY, async (blockUrl) => {
             try {
                 const resolvedUrl = await getRedirectLinks(blockUrl);
                 if (!resolvedUrl) return;
@@ -127,7 +148,7 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
     const initialLinks = [];
     if (targetEpisode != null) {
       const epNum = parseInt(targetEpisode, 10);
-      const epLinks = [...new Set(episodeLinksMap.get(epNum) || [])].slice(0, MAX_LINKS_PER_REQUEST);
+      const epLinks = prioritizeExtractUrls([...new Set(episodeLinksMap.get(epNum) || [])]).slice(0, MAX_LINKS_PER_REQUEST);
       initialLinks.push(...epLinks.map(link => ({ url: link, episode: epNum })));
       console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
     } else {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.6 - 2026-05-30
+
+- **HDHub4u `1.1.4-cb2`**: Faster fetching — prioritize Pixeldrain/direct links over HubCloud wrappers; max 3 extractors; HubCloud stops after 2 buttons; skip TV redirect blocks when episode links exist; HbLinks capped.
+
 ## 1.2.5 - 2026-05-30
 
 - **4KHDHub `1.0.10-cb1`**: Fix regression where movies with more than 5 download rows threw `Assignment to constant variable` and returned no streams.
