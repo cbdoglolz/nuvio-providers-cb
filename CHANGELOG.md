@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4 - 2026-05-30
+
+- Repo version bump only (same code as 1.2.3) — use if Nuvio still shows 1.2.2 after refresh. Try jsdelivr URL or delete/re-add cbrepo.
+
 ## 1.2.3 - 2026-05-30
 
 - **4KHDHub `1.0.9-cb1`**: Cap to 5 download rows (prefer 4K/1080p), limit HubCloud chains to 2 concurrent / 2 links per row — fixes very slow fetching.
