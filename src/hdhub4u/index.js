@@ -2,8 +2,11 @@ import cheerio from 'cheerio-without-node-native';
 import { HEADERS, MAIN_URL } from './constants.js';
 import { 
   getCurrentDomain, getTMDBDetails, findBestTitleMatch, 
-  extractServerName, formatBytes 
+  extractServerName, formatBytes, mapPool
 } from './utils.js';
+
+const EXTRACTOR_CONCURRENCY = 2;
+const MAX_LINKS_PER_REQUEST = 5;
 import { loadExtractor, getRedirectLinks } from './extractors.js';
 
 async function search(query) {
@@ -33,7 +36,7 @@ async function search(query) {
   });
 }
 
-async function getDownloadLinks(mediaUrl) {
+async function getDownloadLinks(mediaUrl, targetEpisode = null) {
   const domain = await getCurrentDomain();
   const response = await fetch(mediaUrl, { headers: { ...HEADERS, Referer: `${domain}/` } });
   const data = await response.text();
@@ -52,9 +55,10 @@ async function getDownloadLinks(mediaUrl) {
     const initialLinks = [...new Set([
         ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
         ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-    ])];
+    ])].slice(0, MAX_LINKS_PER_REQUEST);
     
-    const results = await Promise.all(initialLinks.map(url => loadExtractor(url, mediaUrl)));
+    console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
+    const results = await mapPool(initialLinks, EXTRACTOR_CONCURRENCY, url => loadExtractor(url, mediaUrl));
     const allFinalLinks = results.flat();
     
     const seenUrls = new Set();
@@ -99,7 +103,7 @@ async function getDownloadLinks(mediaUrl) {
     });
     
     if (directLinkBlocks.length > 0) {
-        await Promise.all(directLinkBlocks.map(async (blockUrl) => {
+        await mapPool(directLinkBlocks.slice(0, 3), EXTRACTOR_CONCURRENCY, async (blockUrl) => {
             try {
                 const resolvedUrl = await getRedirectLinks(blockUrl);
                 if (!resolvedUrl) return;
@@ -117,21 +121,28 @@ async function getDownloadLinks(mediaUrl) {
                     }
                 });
             } catch (e) {}
-        }));
+        });
     }
     
     const initialLinks = [];
-    episodeLinksMap.forEach((links, epNum) => {
-      const uniqueLinks = [...new Set(links)];
-      initialLinks.push(...uniqueLinks.map(link => ({ url: link, episode: epNum })));
-    });
+    if (targetEpisode != null) {
+      const epNum = parseInt(targetEpisode, 10);
+      const epLinks = [...new Set(episodeLinksMap.get(epNum) || [])].slice(0, MAX_LINKS_PER_REQUEST);
+      initialLinks.push(...epLinks.map(link => ({ url: link, episode: epNum })));
+      console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
+    } else {
+      episodeLinksMap.forEach((links, epNum) => {
+        const uniqueLinks = [...new Set(links)].slice(0, 2);
+        initialLinks.push(...uniqueLinks.map(link => ({ url: link, episode: epNum })));
+      });
+    }
     
-    const results = await Promise.all(initialLinks.map(async (linkInfo) => {
+    const results = await mapPool(initialLinks, EXTRACTOR_CONCURRENCY, async (linkInfo) => {
         try {
             const extracted = await loadExtractor(linkInfo.url, mediaUrl);
             return extracted.map(ext => ({ ...ext, episode: linkInfo.episode }));
         } catch (e) { return []; }
-    }));
+    });
     
     const allFinalLinks = results.flat();
     const seenUrls = new Set();
@@ -160,13 +171,9 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
     const selectedMedia = bestMatch || searchResults[0];
     console.log(`[HDHub4u] Selected: "${selectedMedia.title}" (${selectedMedia.url})`);
     
-    const result = await getDownloadLinks(selectedMedia.url);
-    const finalLinks = result.finalLinks;
-    let filteredLinks = finalLinks;
-    
-    if (mediaType === "tv" && episode !== null) {
-      filteredLinks = finalLinks.filter(link => link.episode === episode);
-    }
+    const targetEp = mediaType === "tv" && episode !== null ? parseInt(episode, 10) : null;
+    const result = await getDownloadLinks(selectedMedia.url, targetEp);
+    const filteredLinks = result.finalLinks;
     
     const streams = filteredLinks.map(link => {
       let mediaTitle = link.fileName && link.fileName !== "Unknown" ? link.fileName : mediaInfo.title;

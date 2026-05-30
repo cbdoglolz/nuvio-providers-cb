@@ -737,6 +737,42 @@ ${source} | ${formatBytes(bytes)}`,
 
 // src/4khdhub/index.js
 var cheerio3 = require("cheerio-without-node-native");
+var MAX_ITEMS = 5;
+var ITEM_CONCURRENCY = 2;
+var MAX_RAW_LINKS = 2;
+function mapPool(items, limit, fn) {
+  return new Promise(function(resolve) {
+    var results = new Array(items.length);
+    var index = 0;
+    var running = 0;
+    function pump() {
+      while (running < limit && index < items.length) {
+        (function(i) {
+          running++;
+          Promise.resolve(fn(items[i], i)).then(function(r) {
+            results[i] = r;
+          }).catch(function() {
+            results[i] = [];
+          }).finally(function() {
+            running--;
+            if (index >= items.length && running === 0) resolve(results);
+            else pump();
+          });
+        })(index++);
+      }
+      if (items.length === 0) resolve([]);
+    }
+    pump();
+  });
+}
+function itemQualityScore($, item) {
+  var text = $(item).text().toLowerCase();
+  if (text.indexOf("2160") >= 0 || text.indexOf("4k") >= 0) return 4;
+  if (text.indexOf("1080") >= 0) return 3;
+  if (text.indexOf("720") >= 0) return 2;
+  if (text.indexOf("480") >= 0) return 1;
+  return 0;
+}
 function getStreams(tmdbId, type, season, episode) {
   return __async(this, null, function* () {
     const tmdbDetails = yield getTmdbDetails(tmdbId, type);
@@ -775,7 +811,14 @@ function getStreams(tmdbId, type, season, episode) {
       });
     }
     console.log(`[4KHDHub] Processing ${itemsToProcess.length} items`);
-    const streamPromises = itemsToProcess.map((item) => __async(this, null, function* () {
+    if (itemsToProcess.length > MAX_ITEMS) {
+      itemsToProcess.sort(function(a, b) {
+        return itemQualityScore($, b) - itemQualityScore($, a);
+      });
+      itemsToProcess = itemsToProcess.slice(0, MAX_ITEMS);
+      console.log(`[4KHDHub] Capped to ${itemsToProcess.length} highest-quality items`);
+    }
+    const results = yield mapPool(itemsToProcess, ITEM_CONCURRENCY, (item) => __async(this, null, function* () {
       try {
         const meta = extractMetaFromItem($, item);
         const rawLinks = extractRawLinksFromItem($, item, pageUrl);
@@ -785,14 +828,14 @@ function getStreams(tmdbId, type, season, episode) {
             return [];
           rawLinks.push(sourceResult.url);
         }
-        const extracted = (yield Promise.all(rawLinks.map((raw) => extractResolvedLink(raw, meta)))).flat();
+        const limitedRaw = rawLinks.slice(0, MAX_RAW_LINKS);
+        const extracted = (yield mapPool(limitedRaw, ITEM_CONCURRENCY, (raw) => extractResolvedLink(raw, meta))).flat();
         return extracted.filter((link) => link && link.url && !link.url.includes(".zip")).map((link) => toNuvioStream(link, meta));
       } catch (err) {
         console.log(`[4KHDHub] Item processing error: ${err.message}`);
         return [];
       }
     }));
-    const results = yield Promise.all(streamPromises);
     return results.reduce((acc, val) => acc.concat(val), []).sort((a, b) => {
       const aHeight = parseInt(a.quality) || 0;
       const bHeight = parseInt(b.quality) || 0;

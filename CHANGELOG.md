@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3 - 2026-05-30
+
+- **4KHDHub `1.0.9-cb1`**: Cap to 5 download rows (prefer 4K/1080p), limit HubCloud chains to 2 concurrent / 2 links per row — fixes very slow fetching.
+- **HDHub4u `1.1.3-cb2`**: TV shows now resolve only the requested episode (was extracting every episode on the page). Movies/TV capped to 5 links with concurrency 2.
+- **KickassAnime `1.0.2-cb2`**: Follow kaa.lt redirect host like Cloudstream, multi-page search, TMDB year in query aliases.
+
 ## 1.2.2 - 2026-05-30
 
 - **KickassAnime `1.0.1-cb1`**: Fix search not finding titles — session warmup, Referer/Origin on API calls, CF retry on HTML challenge pages, TMDB colon/short-title aliases, MAL/Jikan title fallback, weaker match threshold, episode list pagination.

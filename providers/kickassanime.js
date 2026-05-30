@@ -7,6 +7,7 @@ var TMDB_API_KEY = "1865f43a0549ca50d341dd9ab8b29f49";
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 var VID_KEY = "e13d38099bf562e8b9851a652d2043d3";
 var sessionCookie = null;
+var apiHost = MAIN_URL + "/";
 
 function normalizeTitle(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -81,12 +82,18 @@ function mergeSolvedHeaders(headers, solved) {
   return out;
 }
 
+function apiBase() {
+  var h = apiHost || MAIN_URL + "/";
+  return h.endsWith("/") ? h.slice(0, -1) : h;
+}
+
 function apiHeaders(extra) {
+  var origin = apiBase();
   return Object.assign({
-    "Accept": "application/json, */*",
+    "Accept": "*/*",
     "User-Agent": UA,
-    "Referer": MAIN_URL + "/",
-    "Origin": MAIN_URL,
+    "Referer": origin + "/",
+    "Origin": origin,
     "Content-Type": "application/json",
     "x-origin": "kickass-anime.ru"
   }, extra || {}, sessionCookie ? { Cookie: sessionCookie } : {});
@@ -133,8 +140,27 @@ function fetchJsonApi(url, options) {
 }
 
 function warmSession() {
-  return fetchTextWithCf(MAIN_URL + "/", { method: "GET", headers: { Accept: "text/html,*/*" } }).catch(function () {
+  return fetchTextWithCf(apiBase() + "/", { method: "GET", headers: { Accept: "text/html,*/*" } }).catch(function () {
     return "";
+  });
+}
+
+function resolveApiHost() {
+  return fetch(MAIN_URL, { method: "GET", redirect: "manual", headers: { "User-Agent": UA } }).then(function (res) {
+    var loc = res.headers.get("location");
+    if (loc) {
+      if (!loc.startsWith("http")) {
+        loc = MAIN_URL + (loc.startsWith("/") ? loc : "/" + loc);
+      }
+      if (!loc.endsWith("/")) loc += "/";
+      apiHost = loc;
+      console.log("[KickassAnime] API host: " + apiHost);
+    }
+    return warmSession();
+  }).catch(function () {
+    return warmSession();
+  }).then(function () {
+    return apiHost;
   });
 }
 
@@ -142,13 +168,16 @@ function getTmdbDetails(tmdbId, mediaType) {
   var type = mediaType === "tv" ? "tv" : "movie";
   var url = "https://api.themoviedb.org/3/" + type + "/" + tmdbId + "?api_key=" + TMDB_API_KEY + "&append_to_response=external_ids";
   return fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+    var date = d.release_date || d.first_air_date || "";
+    var year = date ? parseInt(String(date).substring(0, 4), 10) : null;
     return {
       title: d.title || d.name || "",
       originalTitle: d.original_title || d.original_name || "",
-      imdbId: d.external_ids && d.external_ids.imdb_id
+      imdbId: d.external_ids && d.external_ids.imdb_id,
+      year: year
     };
   }).catch(function () {
-    return { title: "", originalTitle: "", imdbId: null };
+    return { title: "", originalTitle: "", imdbId: null, year: null };
   });
 }
 
@@ -176,6 +205,7 @@ function getMalTitles(imdbId, season, episode) {
 function buildSearchQueries(info, malTitles, season) {
   var out = [];
   var seen = {};
+  var year = info.year;
   function add(q) {
     q = String(q || "").replace(/\s+/g, " ").trim();
     if (!q || q.length < 2 || seen[q.toLowerCase()]) return;
@@ -186,6 +216,7 @@ function buildSearchQueries(info, malTitles, season) {
   function expandTitle(base) {
     if (!base) return;
     add(base);
+    if (year) add(base + " " + year);
     add(base.replace(/\(.*?\)/g, " ").replace(/\s+/g, " ").trim());
     add(base.replace(/[:._-]+/g, " ").trim());
     add(base.replace(/\s+/g, ""));
@@ -193,6 +224,7 @@ function buildSearchQueries(info, malTitles, season) {
       var parts = base.split(/[:：]/);
       add(parts[0].trim());
       add(parts.slice(1).join(" ").trim());
+      if (year) add(parts[0].trim() + " " + year);
     }
     if (base.indexOf("-") >= 0) {
       add(base.split("-")[0].trim());
@@ -211,14 +243,29 @@ function buildSearchQueries(info, malTitles, season) {
   return out;
 }
 
-function searchAnime(query) {
-  var body = JSON.stringify({ page: "1", query: query });
-  return fetchJsonApi(MAIN_URL + "/api/fsearch", {
+function searchAnime(query, page) {
+  page = page || "1";
+  var body = JSON.stringify({ page: String(page), query: query });
+  return fetchJsonApi(apiBase() + "/api/fsearch", {
     method: "POST",
     body: body
   }).then(function (data) {
     return data && data.result ? data.result : [];
   });
+}
+
+function searchAnimePaged(query, maxPage) {
+  maxPage = maxPage || 2;
+  var page = 1;
+  function next() {
+    return searchAnime(query, String(page)).then(function (results) {
+      if (results && results.length) return results;
+      if (page >= maxPage) return [];
+      page += 1;
+      return next();
+    });
+  }
+  return next();
 }
 
 function searchWithQueries(queries) {
@@ -227,7 +274,7 @@ function searchWithQueries(queries) {
     if (idx >= queries.length) return Promise.resolve([]);
     var q = queries[idx++];
     console.log("[KickassAnime] Search: " + q);
-    return searchAnime(q).then(function (results) {
+    return searchAnimePaged(q, 2).then(function (results) {
       if (results && results.length) {
         console.log("[KickassAnime] Hit " + results.length + " for \"" + q + "\"");
         return results;
@@ -296,7 +343,7 @@ function listEpisodes(showPath, epNum) {
   var collected = [];
 
   function loadPage() {
-    var url = MAIN_URL + "/api/show" + showPath + "/episodes?ep=" + page + "&lang=ja-JP";
+    var url = apiBase() + "/api/show" + showPath + "/episodes?ep=" + page + "&lang=ja-JP";
     return fetchJsonApi(url).then(function (epData) {
       var eps = epData && epData.result ? epData.result : [];
       if (!eps.length) return collected;
@@ -423,7 +470,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
   var seasonNum = parseInt(season, 10) || 1;
   var epNum = parseInt(episode, 10) || 1;
 
-  return warmSession().then(function () {
+  return resolveApiHost().then(function () {
     return getTmdbDetails(tmdbId, mediaType);
   }).then(function (info) {
     if (!info.title && !info.originalTitle) {
@@ -454,7 +501,7 @@ function getStreams(tmdbId, mediaType, season, episode) {
             return [];
           }
           var epSlug = target.slug;
-          var epUrl = MAIN_URL + "/api/show" + showPath + "/episode/ep-" + epNum + "-" + epSlug;
+          var epUrl = apiBase() + "/api/show" + showPath + "/episode/ep-" + epNum + "-" + epSlug;
           return fetchJsonApi(epUrl).then(function (payload) {
             var servers = payload && payload.servers ? payload.servers : [];
             if (!servers.length) {

@@ -2,6 +2,31 @@ import { DOMAINS_URL, DOMAIN_CACHE_TTL, MAIN_URL, HEADERS, updateMainUrl, TMDB_B
 
 let domainCacheTimestamp = 0;
 
+/** Run async fn over items with at most `limit` concurrent tasks. */
+export async function mapPool(items, limit, fn) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let index = 0;
+  let running = 0;
+  return new Promise((resolve) => {
+    function pump() {
+      while (running < limit && index < items.length) {
+        const i = index++;
+        running++;
+        Promise.resolve(fn(items[i], i))
+          .then((r) => { results[i] = r; })
+          .catch(() => { results[i] = []; })
+          .finally(() => {
+            running--;
+            if (index >= items.length && running === 0) resolve(results);
+            else pump();
+          });
+      }
+    }
+    pump();
+  });
+}
+
 export function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "Unknown";
   const k = 1024;

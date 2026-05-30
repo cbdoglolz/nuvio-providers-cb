@@ -1,6 +1,6 @@
 /**
  * hdhub4u - Built from src/hdhub4u/
- * Generated: 2026-05-29T17:35:56.492Z
+ * Generated: 2026-05-30T07:17:12.065Z
  */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -83,6 +83,35 @@ function updateMainUrl(url) {
 
 // src/hdhub4u/utils.js
 var domainCacheTimestamp = 0;
+function mapPool(items, limit, fn) {
+  return __async(this, null, function* () {
+    if (!items.length)
+      return [];
+    const results = new Array(items.length);
+    let index = 0;
+    let running = 0;
+    return new Promise((resolve) => {
+      function pump() {
+        while (running < limit && index < items.length) {
+          const i = index++;
+          running++;
+          Promise.resolve(fn(items[i], i)).then((r) => {
+            results[i] = r;
+          }).catch(() => {
+            results[i] = [];
+          }).finally(() => {
+            running--;
+            if (index >= items.length && running === 0)
+              resolve(results);
+            else
+              pump();
+          });
+        }
+      }
+      pump();
+    });
+  });
+}
 function formatBytes(bytes) {
   if (!bytes || bytes === 0)
     return "Unknown";
@@ -603,6 +632,8 @@ function loadExtractor(_0) {
 }
 
 // src/hdhub4u/index.js
+var EXTRACTOR_CONCURRENCY = 2;
+var MAX_LINKS_PER_REQUEST = 5;
 function search(query) {
   return __async(this, null, function* () {
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -629,7 +660,7 @@ function search(query) {
     });
   });
 }
-function getDownloadLinks(mediaUrl) {
+function getDownloadLinks(mediaUrl, targetEpisode = null) {
   return __async(this, null, function* () {
     const domain = yield getCurrentDomain();
     const response = yield fetch(mediaUrl, { headers: __spreadProps(__spreadValues({}, HEADERS), { Referer: `${domain}/` }) });
@@ -646,8 +677,9 @@ function getDownloadLinks(mediaUrl) {
       const initialLinks = [.../* @__PURE__ */ new Set([
         ...qualityLinks.map((i, el) => $(el).attr("href")).get(),
         ...bodyLinks.map((i, el) => $(el).attr("href")).get()
-      ])];
-      const results = yield Promise.all(initialLinks.map((url) => loadExtractor(url, mediaUrl)));
+      ])].slice(0, MAX_LINKS_PER_REQUEST);
+      console.log(`[HDHub4u] Movie: resolving ${initialLinks.length} link(s)`);
+      const results = yield mapPool(initialLinks, EXTRACTOR_CONCURRENCY, (url) => loadExtractor(url, mediaUrl));
       const allFinalLinks = results.flat();
       const seenUrls = /* @__PURE__ */ new Set();
       const uniqueFinalLinks = allFinalLinks.filter((link) => {
@@ -688,7 +720,7 @@ function getDownloadLinks(mediaUrl) {
         }
       });
       if (directLinkBlocks.length > 0) {
-        yield Promise.all(directLinkBlocks.map((blockUrl) => __async(this, null, function* () {
+        yield mapPool(directLinkBlocks.slice(0, 3), EXTRACTOR_CONCURRENCY, (blockUrl) => __async(this, null, function* () {
           try {
             const resolvedUrl = yield getRedirectLinks(blockUrl);
             if (!resolvedUrl)
@@ -709,21 +741,28 @@ function getDownloadLinks(mediaUrl) {
             });
           } catch (e) {
           }
-        })));
+        }));
       }
       const initialLinks = [];
-      episodeLinksMap.forEach((links, epNum) => {
-        const uniqueLinks = [...new Set(links)];
-        initialLinks.push(...uniqueLinks.map((link) => ({ url: link, episode: epNum })));
-      });
-      const results = yield Promise.all(initialLinks.map((linkInfo) => __async(this, null, function* () {
+      if (targetEpisode != null) {
+        const epNum = parseInt(targetEpisode, 10);
+        const epLinks = [...new Set(episodeLinksMap.get(epNum) || [])].slice(0, MAX_LINKS_PER_REQUEST);
+        initialLinks.push(...epLinks.map((link) => ({ url: link, episode: epNum })));
+        console.log(`[HDHub4u] TV ep ${epNum}: resolving ${initialLinks.length} link(s)`);
+      } else {
+        episodeLinksMap.forEach((links, epNum) => {
+          const uniqueLinks = [...new Set(links)].slice(0, 2);
+          initialLinks.push(...uniqueLinks.map((link) => ({ url: link, episode: epNum })));
+        });
+      }
+      const results = yield mapPool(initialLinks, EXTRACTOR_CONCURRENCY, (linkInfo) => __async(this, null, function* () {
         try {
           const extracted = yield loadExtractor(linkInfo.url, mediaUrl);
           return extracted.map((ext) => __spreadProps(__spreadValues({}, ext), { episode: linkInfo.episode }));
         } catch (e) {
           return [];
         }
-      })));
+      }));
       const allFinalLinks = results.flat();
       const seenUrls = /* @__PURE__ */ new Set();
       const uniqueFinalLinks = allFinalLinks.filter((link) => {
@@ -751,12 +790,9 @@ function getStreams(tmdbId, mediaType = "movie", season = null, episode = null) 
       const bestMatch = findBestTitleMatch(mediaInfo, searchResults, mediaType, season);
       const selectedMedia = bestMatch || searchResults[0];
       console.log(`[HDHub4u] Selected: "${selectedMedia.title}" (${selectedMedia.url})`);
-      const result = yield getDownloadLinks(selectedMedia.url);
-      const finalLinks = result.finalLinks;
-      let filteredLinks = finalLinks;
-      if (mediaType === "tv" && episode !== null) {
-        filteredLinks = finalLinks.filter((link) => link.episode === episode);
-      }
+      const targetEp = mediaType === "tv" && episode !== null ? parseInt(episode, 10) : null;
+      const result = yield getDownloadLinks(selectedMedia.url, targetEp);
+      const filteredLinks = result.finalLinks;
       const streams = filteredLinks.map((link) => {
         let mediaTitle = link.fileName && link.fileName !== "Unknown" ? link.fileName : mediaInfo.title;
         if (mediaType === "tv" && season && episode) {
