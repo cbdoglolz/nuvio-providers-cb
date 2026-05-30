@@ -2,7 +2,8 @@
 
 A collection of streaming providers for the Nuvio app. Providers are JavaScript modules that fetch streams from various sources.
 
-📖 **[Read the Comprehensive Developer Guide](DOCUMENTATION.md)**
+📖 **[Read the Comprehensive Developer Guide](DOCUMENTATION.md)**  
+📌 **版本刷不出来？** 看 **[NUVIO_SYNC.md](NUVIO_SYNC.md)**（Nuvio 缓存 / 账号同步，不是 GitHub 没更新）
 
 ## Quick Start
 
