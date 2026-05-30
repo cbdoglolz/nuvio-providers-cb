@@ -791,7 +791,7 @@ function getStreams(tmdbId, type, season, episode) {
     if (!html)
       return [];
     const $ = cheerio3.load(html);
-    const itemsToProcess = [];
+    let itemsToProcess = [];
     if (isSeries && season && episode) {
       const seasonStr = "S" + String(season).padStart(2, "0");
       const episodeStr = "Episode-" + String(episode).padStart(2, "0");

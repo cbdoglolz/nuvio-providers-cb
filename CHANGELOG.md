@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.5 - 2026-05-30
+
+- **4KHDHub `1.0.10-cb1`**: Fix regression where movies with more than 5 download rows threw `Assignment to constant variable` and returned no streams.
+
 ## 1.2.4 - 2026-05-30
 
 - Repo version bump only (same code as 1.2.3) — use if Nuvio still shows 1.2.2 after refresh. Try jsdelivr URL or delete/re-add cbrepo.
