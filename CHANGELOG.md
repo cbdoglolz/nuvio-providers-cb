@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0 - 2026-05-30
+
+- **Vixsrc / Vidlink / YFlix**: Fix playback “resource error” on new releases (e.g. Project Hail Mary) — restore `type: "direct"`, keep master adaptive m3u8, validate variant URLs, correct Referer/Origin for CDN playlists.
+- **YFlix `1.1.4-cb1`**: Movie `eid` lookup fix; yflix.to Referer/Origin on streams.
+
 ## 1.2.9 - 2026-05-30
 
 - **4KHDHub `1.0.11-cb1`**: Expose file size in `size` field (GB/MB), not only in title.

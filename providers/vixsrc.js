@@ -260,31 +260,55 @@ function parseMasterM3u8(content, baseUrl) {
   }
   return streams;
 }
+function validateM3u8Url(url, headers) {
+  return __async(this, null, function* () {
+    try {
+      const response = yield fetch(url, {
+        method: "GET",
+        headers: __spreadValues(__spreadValues({}, headers), { Range: "bytes=0-2048" })
+      });
+      if (!response.ok)
+        return false;
+      const text = yield response.text();
+      return text.indexOf("#EXTM3U") >= 0;
+    } catch (e) {
+      return false;
+    }
+  });
+}
 function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
   return __async(this, null, function* () {
     const headers = {
-      Referer: BASE_URL,
+      Referer: BASE_URL + "/",
+      Origin: BASE_URL,
       "User-Agent": USER_AGENT,
       Accept: "*/*"
+    };
+    const masterStream = {
+      name: "Vixsrc",
+      title: displayTitle,
+      url: masterPlaylistUrl,
+      quality: "Auto",
+      type: "direct",
+      headers,
+      provider: "vixsrc"
     };
     try {
       const response = yield makeRequest(masterPlaylistUrl, { headers });
       const text = yield response.text();
-      const variants = parseMasterM3u8(text, masterPlaylistUrl);
-      if (variants.length === 0) {
-        console.log("[Vixsrc] Single-stream playlist, using Auto");
-        return [{
-          name: "Vixsrc",
-          title: displayTitle,
-          url: masterPlaylistUrl,
-          quality: "Auto",
-          headers,
-          provider: "vixsrc"
-        }];
+      if (text.indexOf("#EXTM3U") < 0) {
+        console.log("[Vixsrc] Invalid master playlist body");
+        return [masterStream];
       }
-      console.log(`[Vixsrc] ${variants.length} quality variant(s)`);
+      const variants = parseMasterM3u8(text, masterPlaylistUrl).filter(
+        (v) => v.url && (v.resolution || String(v.url).indexOf("type=video") >= 0)
+      );
+      if (variants.length === 0) {
+        console.log("[Vixsrc] No video variants; using master adaptive playlist");
+        return [masterStream];
+      }
+      const out = [masterStream];
       const seen = /* @__PURE__ */ new Set();
-      const out = [];
       variants.sort((a, b) => {
         const ah = a.resolution ? parseInt(a.resolution.split("x")[1], 10) : 0;
         const bh = b.resolution ? parseInt(b.resolution.split("x")[1], 10) : 0;
@@ -294,39 +318,28 @@ function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
         const quality = getQualityFromResolution(v.resolution);
         if (seen.has(quality))
           continue;
+        const ok = yield validateM3u8Url(v.url, headers);
+        if (!ok) {
+          console.log(`[Vixsrc] Skip ${quality}: variant URL not reachable`);
+          continue;
+        }
         seen.add(quality);
-        const bitrate = formatBitrate(v.bandwidth);
         out.push({
           name: `Vixsrc - ${quality}`,
           title: displayTitle,
           url: v.url,
           quality,
-          size: bitrate || void 0,
+          size: formatBitrate(v.bandwidth) || void 0,
+          type: "direct",
           headers,
           provider: "vixsrc"
         });
       }
-      return out.length ? out : [{
-        name: "Vixsrc",
-        title: displayTitle,
-        url: masterPlaylistUrl,
-        quality: "Auto",
-        headers,
-        provider: "vixsrc"
-      }];
+      console.log(`[Vixsrc] Returning ${out.length} stream(s) (master + validated variants)`);
+      return out;
     } catch (e) {
-      console.log("[Vixsrc] Playlist parse failed, fallback Auto:", e.message);
-      return [{
-        name: "Vixsrc",
-        title: displayTitle,
-        url: masterPlaylistUrl,
-        quality: "Auto",
-        headers: {
-          Referer: BASE_URL,
-          "User-Agent": USER_AGENT
-        },
-        provider: "vixsrc"
-      }];
+      console.log("[Vixsrc] Playlist parse failed, master only:", e.message);
+      return [masterStream];
     }
   });
 }

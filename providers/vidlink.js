@@ -130,6 +130,33 @@ function formatBitrate(bps) {
     return (bps / 1e6).toFixed(1) + " Mbps";
   return Math.round(bps / 1e3) + " Kbps";
 }
+function playlistHeaders(playlistUrl) {
+  try {
+    const origin = new URL(playlistUrl).origin;
+    return __spreadValues(__spreadValues({}, VIDLINK_HEADERS), {
+      Referer: origin + "/",
+      Origin: origin
+    });
+  } catch (e) {
+    return VIDLINK_HEADERS;
+  }
+}
+function validateM3u8Url(url, headers) {
+  return __async(this, null, function* () {
+    try {
+      const response = yield fetch(url, {
+        method: "GET",
+        headers: __spreadValues(__spreadValues({}, headers), { Range: "bytes=0-2048" })
+      });
+      if (!response.ok)
+        return false;
+      const text = yield response.text();
+      return text.indexOf("#EXTM3U") >= 0;
+    } catch (e) {
+      return false;
+    }
+  });
+}
 function getQualityFromResolution(resolution) {
   if (!resolution)
     return "Auto";
@@ -174,26 +201,33 @@ function parseM3U8(content, baseUrl) {
 function fetchAndParseM3U8(playlistUrl, mediaInfo) {
   return __async(this, null, function* () {
     console.log(`[Vidlink] Fetching M3U8 playlist: ${playlistUrl.substring(0, 80)}...`);
+    const plHeaders = playlistHeaders(playlistUrl);
+    const masterStream = {
+      name: "Vidlink - Auto",
+      title: mediaInfo.title,
+      url: playlistUrl,
+      quality: "Auto",
+      type: "direct",
+      headers: plHeaders,
+      provider: "vidlink"
+    };
     try {
-      const response = yield makeRequest(playlistUrl, { headers: VIDLINK_HEADERS });
+      const response = yield makeRequest(playlistUrl, { headers: plHeaders });
       const m3u8Content = yield response.text();
+      if (m3u8Content.indexOf("#EXTM3U") < 0) {
+        console.log("[Vidlink] Playlist response is not valid m3u8");
+        return [];
+      }
       console.log(`[Vidlink] Parsing M3U8 content`);
       const parsedStreams = parseM3U8(m3u8Content, playlistUrl);
       if (parsedStreams.length === 0) {
-        console.log("[Vidlink] No quality variants found, returning master playlist");
-        return [{
-          name: "Vidlink - Auto",
-          title: mediaInfo.title,
-          url: playlistUrl,
-          quality: "Auto",
-          size: "",
-          headers: VIDLINK_HEADERS,
-          provider: "vidlink"
-        }];
+        console.log("[Vidlink] Media playlist — using master URL");
+        const ok = yield validateM3u8Url(playlistUrl, plHeaders);
+        return ok ? [masterStream] : [];
       }
       console.log(`[Vidlink] Found ${parsedStreams.length} quality variants`);
       const seen = /* @__PURE__ */ new Set();
-      const out = [];
+      const out = [masterStream];
       parsedStreams.sort((a, b) => {
         const ah = a.resolution ? parseInt(a.resolution.split("x")[1], 10) : 0;
         const bh = b.resolution ? parseInt(b.resolution.split("x")[1], 10) : 0;
@@ -203,6 +237,11 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
         const quality = getQualityFromResolution(stream.resolution);
         if (seen.has(quality))
           continue;
+        const ok = yield validateM3u8Url(stream.url, plHeaders);
+        if (!ok) {
+          console.log(`[Vidlink] Skip ${quality}: variant not reachable`);
+          continue;
+        }
         seen.add(quality);
         const bitrate = formatBitrate(stream.bandwidth);
         out.push({
@@ -211,29 +250,15 @@ function fetchAndParseM3U8(playlistUrl, mediaInfo) {
           url: stream.url,
           quality,
           size: bitrate || void 0,
-          headers: VIDLINK_HEADERS,
+          type: "direct",
+          headers: plHeaders,
           provider: "vidlink"
         });
       }
-      return out.length ? out : [{
-        name: "Vidlink - Auto",
-        title: mediaInfo.title,
-        url: playlistUrl,
-        quality: "Auto",
-        headers: VIDLINK_HEADERS,
-        provider: "vidlink"
-      }];
+      return out;
     } catch (error) {
       console.error(`[Vidlink] Error fetching/parsing M3U8: ${error.message}`);
-      return [{
-        name: "Vidlink - Auto",
-        title: mediaInfo.title,
-        url: playlistUrl,
-        quality: "Auto",
-        size: "",
-        headers: VIDLINK_HEADERS,
-        provider: "vidlink"
-      }];
+      return [];
     }
   });
 }
@@ -302,7 +327,7 @@ function processVidlinkResponse(data, mediaInfo) {
             title: streamTitle,
             url: qualityData.url,
             quality,
-            size: "",
+            type: "direct",
             headers: VIDLINK_HEADERS,
             provider: "vidlink"
           });
@@ -329,7 +354,7 @@ function processVidlinkResponse(data, mediaInfo) {
         title: streamTitle,
         url: data.url,
         quality,
-        size: "",
+        type: "direct",
         headers: VIDLINK_HEADERS,
         provider: "vidlink"
       });

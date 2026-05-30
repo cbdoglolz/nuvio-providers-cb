@@ -4,7 +4,9 @@
 // Headers for requests
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-  'Connection': 'keep-alive'
+  'Connection': 'keep-alive',
+  'Referer': 'https://yflix.to/',
+  'Origin': 'https://yflix.to'
 };
 
 const API = 'https://enc-dec.app/api';
@@ -326,6 +328,7 @@ function runStreamFetch(eid, title, year, mediaType, seasonNum, episodeNum, rid)
             title: `${title}${year ? ` (${year})` : ''}${mediaType === 'tv' && seasonNum && episodeNum ? ` S${seasonNum}E${episodeNum}` : ''}`,
             url: stream.url,
             quality: q,
+            type: stream.url && stream.url.includes('.m3u8') ? 'direct' : undefined,
             headers: HEADERS,
             provider: 'yflix'
           };
@@ -368,9 +371,15 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
         const selectedSeason = String(seasonNum || 1);
         const selectedEpisode = String(episodeNum || 1);
 
-        if (episodes && episodes[selectedSeason] && episodes[selectedSeason][selectedEpisode]) {
+        if (mediaType === 'movie' && info && info.eid) {
+          eid = info.eid;
+          logRid(rid, `movie eid=${eid}`);
+        } else if (episodes && episodes[selectedSeason] && episodes[selectedSeason][selectedEpisode]) {
           eid = episodes[selectedSeason][selectedEpisode].eid;
           logRid(rid, `found episode eid=${eid} for S${selectedSeason}E${selectedEpisode}`);
+        } else if (mediaType === 'movie' && episodes && episodes['1'] && episodes['1']['1']) {
+          eid = episodes['1']['1'].eid;
+          logRid(rid, `movie fallback eid=${eid} from S01E01 slot`);
         } else {
           // Fallback: try to find any available episode
           const seasons = Object.keys(episodes || {});
