@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -20,6 +20,28 @@
       "logo": "https://www.google.com/s2/favicons?domain=4khdhub.click&sz=128",
       "contentLanguage": [
         "en"
+      ]
+    },
+    {
+      "id": "kickassanime",
+      "name": "KickassAnime",
+      "description": "KickassAnime (kaa.lt) anime via JSON API; VidStreaming/CatStream/BirdStream extractors with Cloudflare retry.",
+      "version": "1.0.0-cb1",
+      "author": "Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kickassanime.js",
+      "enabled": true,
+      "limited": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=kaa.lt&sz=128",
+      "contentLanguage": [
+        "en",
+        "ja"
       ]
     },
     {

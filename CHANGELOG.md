@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1 - 2026-05-30
+
+- **KickassAnime `1.0.0-cb1`**: New anime provider ported from phisher98 Cloudstream `Kickassanime` (kaa.lt JSON API). TMDB title search, episode lookup, VidStreaming AES + CatStream/BirdStream m3u8 extraction, `Cloudflare.solve()` retry on 403/503.
+
 ## 1.2.0 - 2026-05-30
 
 Pruned dead or harmful providers after real-device testing (Project Hail Mary and batch local audit). **11 providers remain.**
