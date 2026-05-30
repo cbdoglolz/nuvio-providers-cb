@@ -1,6 +1,6 @@
 {
   "name": "cbrepo",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -26,7 +26,7 @@
       "id": "kickassanime",
       "name": "KickassAnime",
       "description": "KickassAnime (kaa.lt) anime via JSON API; VidStreaming/CatStream/BirdStream extractors with Cloudflare retry.",
-      "version": "1.0.0-cb1",
+      "version": "1.0.1-cb1",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",

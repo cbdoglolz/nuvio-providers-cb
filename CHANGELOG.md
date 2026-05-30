@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2 - 2026-05-30
+
+- **KickassAnime `1.0.1-cb1`**: Fix search not finding titles — session warmup, Referer/Origin on API calls, CF retry on HTML challenge pages, TMDB colon/short-title aliases, MAL/Jikan title fallback, weaker match threshold, episode list pagination.
+
 ## 1.2.1 - 2026-05-30
 
 - **KickassAnime `1.0.0-cb1`**: New anime provider ported from phisher98 Cloudstream `Kickassanime` (kaa.lt JSON API). TMDB title search, episode lookup, VidStreaming AES + CatStream/BirdStream m3u8 extraction, `Cloudflare.solve()` retry on 403/503.
