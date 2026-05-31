@@ -276,6 +276,33 @@ function validateM3u8Url(url, headers) {
     }
   });
 }
+function parseSubtitlesFromMaster(m3u8Text, baseUrl) {
+  const tracks = [];
+  const lines = m3u8Text.split("\n");
+  for (const line of lines) {
+    if (line.indexOf("#EXT-X-MEDIA") < 0 || line.indexOf("TYPE=SUBTITLES") < 0)
+      continue;
+    const nameMatch = line.match(/NAME="([^"]+)"/i);
+    const langMatch = line.match(/LANGUAGE="([^"]+)"/i);
+    const uriMatch = line.match(/URI="([^"]+)"/i);
+    if (!uriMatch)
+      continue;
+    let url = uriMatch[1];
+    if (url.indexOf("http") !== 0) {
+      try {
+        url = new URL(url, baseUrl).href;
+      } catch (e) {
+      }
+    }
+    const label = nameMatch ? nameMatch[1] : langMatch ? langMatch[1] : "unknown";
+    tracks.push({
+      language: langMatch ? langMatch[1] : label,
+      label,
+      url
+    });
+  }
+  return tracks;
+}
 function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
   return __async(this, null, function* () {
     const headers = {
@@ -300,6 +327,15 @@ function buildStreamsFromMaster(masterPlaylistUrl, displayTitle) {
         console.log("[Vixsrc] Invalid master playlist body — still returning master URL");
       } else {
         console.log("[Vixsrc] Master playlist OK — single adaptive stream for playback");
+        const subTracks = parseSubtitlesFromMaster(text, masterPlaylistUrl);
+        if (subTracks.length > 0) {
+          masterStream.subtitles = subTracks.map((t) => ({
+            language: t.label || t.language,
+            url: t.url
+          }));
+          const zh = subTracks.find((t) => /chinese|中文|chi|zho|zh-hans|mandarin/i.test(`${t.label} ${t.language}`));
+          console.log(`[Vixsrc] Subtitle tracks: ${subTracks.map((t) => t.label).join(", ")}${zh ? " (incl. Chinese)" : ""}`);
+        }
       }
     } catch (e) {
       console.log("[Vixsrc] Master playlist probe failed, returning URL anyway:", e.message);

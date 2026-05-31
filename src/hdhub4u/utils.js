@@ -207,44 +207,93 @@ export function calculateTitleSimilarity(title1, title2) {
   return score;
 }
 
+export function extractCoreSeriesTitle(title) {
+  if (!title) return "";
+  return title
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\[.*?\]/g, " ")
+    .replace(/\|.*$/g, " ")
+    .replace(/\bseason\s*\d+.*/i, " ")
+    .replace(/\bs\d{1,2}\b.*$/i, " ")
+    .replace(/all episodes.*/i, " ")
+    .replace(/\b(480p|720p|1080p|2160p|4k|web-dl|bluray|hindi|english|x264|hevc).*/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function shortFileLabel(name, maxLen = 48) {
+  if (!name) return "";
+  const base = String(name).replace(/^.*[\\/]/, "").replace(/\.(mkv|mp4)$/i, "");
+  if (base.length <= maxLen) return base;
+  return base.slice(0, maxLen - 1) + "\u2026";
+}
+
+export function matchesSeasonEpisode(text, season, episode) {
+  if (!text) return false;
+  const s = parseInt(season, 10);
+  const e = parseInt(episode, 10);
+  if (isNaN(s) || isNaN(e)) return true;
+  const explicit = String(text).match(/\bS(\d{1,2})[\s._-]*E(\d{1,3})\b/i);
+  if (explicit) {
+    return parseInt(explicit[1], 10) === s && parseInt(explicit[2], 10) === e;
+  }
+  const seasonEp = String(text).match(/\bSeason\s*(\d{1,2})[\s._-]*Episode\s*(\d{1,3})\b/i);
+  if (seasonEp) {
+    return parseInt(seasonEp[1], 10) === s && parseInt(seasonEp[2], 10) === e;
+  }
+  const epOnly = String(text).match(/\bEpisode[-\s]*0*(\d{1,3})\b/i);
+  if (epOnly && !/\bS\d/i.test(text)) {
+    return parseInt(epOnly[1], 10) === e;
+  }
+  return false;
+}
+
 export function findBestTitleMatch(mediaInfo, searchResults, mediaType, season) {
   if (!searchResults || searchResults.length === 0) return null;
   let bestMatch = null;
   let bestScore = 0;
+  const coreMedia = normalizeTitle(extractCoreSeriesTitle(mediaInfo.title));
   for (const result of searchResults) {
     let score = calculateTitleSimilarity(mediaInfo.title, result.title);
+    const coreResult = normalizeTitle(extractCoreSeriesTitle(result.title));
+    if (coreMedia && coreResult === coreMedia) score += 0.45;
+    if (coreMedia && coreResult.includes(coreMedia) && coreResult !== coreMedia) {
+      const prefix = coreResult.replace(coreMedia, "").trim();
+      if (prefix.length > 0) score -= 1.2;
+    }
     if (mediaInfo.year && result.year) {
       const yearDiff = Math.abs(mediaInfo.year - result.year);
       if (yearDiff === 0) score += 0.2;
       else if (yearDiff <= 1) score += 0.1;
-      else if (yearDiff > 5) score -= 0.3;
+      else if (yearDiff > 2) score -= 0.5;
+    } else if (mediaInfo.year && result.title) {
+      const yearInTitle = result.title.match(/\b(19|20)\d{2}\b/);
+      if (yearInTitle) {
+        const y = parseInt(yearInTitle[0], 10);
+        if (Math.abs(y - mediaInfo.year) > 2) score -= 0.5;
+      }
     }
     if (mediaType === "tv" && season) {
       const titleLower = result.title.toLowerCase();
       const seasonPatterns = [
-          `season ${season}`, 
-          `s${season}`, 
+          `season ${season}`,
+          `s${season}`,
           `season ${season.toString().padStart(2, '0')}`,
           `s${season.toString().padStart(2, '0')}`
       ];
       const hasSeason = seasonPatterns.some(p => titleLower.includes(p));
-      
-      // If we found a season but it's the WRONG one, penalize heavily
-      const otherSeasonMatch = titleLower.match(/season\s*(\d+)|s(\d+)/i);
+      const otherSeasonMatch = titleLower.match(/season\s*(\d+)|\bs(\d{1,2})\b/i);
       if (otherSeasonMatch) {
-          const foundSeason = parseInt(otherSeasonMatch[1] || otherSeasonMatch[2]);
-          if (foundSeason !== season) {
-              score -= 0.8;
-          }
+          const foundSeason = parseInt(otherSeasonMatch[1] || otherSeasonMatch[2], 10);
+          if (foundSeason !== parseInt(season, 10)) score -= 0.8;
       }
-
       if (hasSeason) score += 0.5;
       else score -= 0.3;
     }
     if (result.title.toLowerCase().includes("2160p") || result.title.toLowerCase().includes("4k")) {
       score += 0.05;
     }
-    if (score > bestScore && score > 0.3) {
+    if (score > bestScore && score > 0.35) {
       bestScore = score;
       bestMatch = result;
     }

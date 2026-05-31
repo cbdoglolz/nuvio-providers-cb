@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.3 - 2026-05-31
+
+- **4KHDHub `1.0.12-cb1`**: Stricter TV SxxExx matching (fixes wrong episode e.g. S04E01 when requesting S01E01); season in search query; show filename in source name.
+- **HDHub4u `1.1.6-cb2`**: Reject wrong series in search (e.g. Young Sherlock vs Sherlock); filter links by episode filename; show filename in source name.
+- **Vixsrc `1.0.6-cb1`**: Pass subtitle tracks from HLS master (incl. Chinese when available in playlist).
+
 ## 1.3.2 - 2026-05-31
 
 - **YFlix `1.1.6-cb1`**: Fix rapid playback — fetch `/media/` with yflix.to Referer (Cloudstream pattern); set playback Referer to embed/CDN host; return master m3u8 only (no variant split).

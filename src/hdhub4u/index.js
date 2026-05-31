@@ -2,7 +2,7 @@ import cheerio from 'cheerio-without-node-native';
 import { HEADERS, MAIN_URL } from './constants.js';
 import { 
   getCurrentDomain, getTMDBDetails, findBestTitleMatch, 
-  extractServerName, formatBytes, mapPool
+  extractServerName, formatBytes, mapPool, shortFileLabel, matchesSeasonEpisode
 } from './utils.js';
 import { loadExtractor, getRedirectLinks } from './extractors.js';
 
@@ -119,9 +119,9 @@ async function getDownloadLinks(mediaUrl, targetEpisode = null) {
           return;
       }
 
-      const episodeMatch = text.match(/(?:EPiSODE\s*(\d+)|E(\d+))/i);
+      const episodeMatch = text.match(/(?:EPiSODE\s*(\d+)|\bS(\d{1,2})[\s._-]*E(\d{1,3})|\bE(\d{1,3})\b)/i);
       if (episodeMatch) {
-        const epNum = parseInt(episodeMatch[1] || episodeMatch[2]);
+        const epNum = parseInt(episodeMatch[1] || episodeMatch[3] || episodeMatch[4], 10);
         if (!episodeLinksMap.has(epNum)) episodeLinksMap.set(epNum, []);
         episodeLinksMap.get(epNum).push(...links);
         
@@ -209,7 +209,16 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
     
     const targetEp = mediaType === "tv" && episode !== null ? parseInt(episode, 10) : null;
     const result = await getDownloadLinks(selectedMedia.url, targetEp);
-    const filteredLinks = result.finalLinks;
+    let filteredLinks = result.finalLinks;
+    if (mediaType === "tv" && season && episode) {
+      filteredLinks = filteredLinks.filter((link) => {
+        const label = [link.fileName, link.name, link.source].filter(Boolean).join(" ");
+        if (!label || label === "Unknown") return true;
+        if (!/\bS\d{1,2}[\s._-]*E\d{1,3}\b/i.test(label)) return true;
+        return matchesSeasonEpisode(label, season, episode);
+      });
+      console.log(`[HDHub4u] After S${season}E${episode} filter: ${filteredLinks.length} link(s)`);
+    }
     
     const streams = filteredLinks.map(link => {
       let mediaTitle = link.fileName && link.fileName !== "Unknown" ? link.fileName : mediaInfo.title;
@@ -227,9 +236,10 @@ async function getStreams(tmdbId, mediaType = "movie", season = null, episode = 
       } else if (typeof link.quality === "string") {
           qualityStr = link.quality;
       }
+      const fileLabel = link.fileName && link.fileName !== "Unknown" ? shortFileLabel(link.fileName) : "";
       
       return {
-        name: `HDHub4u ${serverName}`,
+        name: `HDHub4u ${serverName}${qualityStr !== "Unknown" ? " " + qualityStr : ""}${fileLabel ? " · " + fileLabel : ""}`,
         title: mediaTitle,
         url: link.url,
         quality: qualityStr,

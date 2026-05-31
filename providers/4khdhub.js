@@ -239,10 +239,38 @@ function cleanTitle(title) {
 
 // src/4khdhub/search.js
 var cheerio = require("cheerio-without-node-native");
-function fetchPageUrl(name, year, isSeries) {
+function shortFileLabel(name, maxLen) {
+  if (maxLen === void 0) maxLen = 48;
+  if (!name) return "";
+  const base = String(name).replace(/^.*[\\/]/, "").replace(/\.(mkv|mp4)$/i, "");
+  if (base.length <= maxLen) return base;
+  return base.slice(0, maxLen - 1) + "\u2026";
+}
+function matchesSeasonEpisode(text, season, episode) {
+  if (!text) return false;
+  const s = parseInt(season, 10);
+  const e = parseInt(episode, 10);
+  if (isNaN(s) || isNaN(e)) return true;
+  const str = String(text);
+  const explicit = str.match(/\bS(\d{1,2})[\s._-]*E(\d{1,3})\b/i);
+  if (explicit) {
+    return parseInt(explicit[1], 10) === s && parseInt(explicit[2], 10) === e;
+  }
+  const seasonEp = str.match(/\bSeason\s*(\d{1,2})[\s._-]*Episode\s*(\d{1,3})\b/i);
+  if (seasonEp) {
+    return parseInt(seasonEp[1], 10) === s && parseInt(seasonEp[2], 10) === e;
+  }
+  const epOnly = str.match(/\bEpisode[-\s]*0*(\d{1,3})\b/i);
+  if (epOnly && !/\bS\d/i.test(str)) {
+    return parseInt(epOnly[1], 10) === e;
+  }
+  return false;
+}
+function fetchPageUrl(name, year, isSeries, season) {
   return __async(this, null, function* () {
     const domain = yield fetchLatestDomain();
-    const searchUrl = `${domain}/?s=${encodeURIComponent(name + " " + year)}`;
+    const queryTitle = isSeries && season ? `${name} Season ${season}` : name;
+    const searchUrl = `${domain}/?s=${encodeURIComponent(queryTitle + " " + year)}`;
     console.log(`[4KHDHub] Search Request URL: ${searchUrl}`);
     const html = yield fetchText(searchUrl);
     if (!html) {
@@ -719,8 +747,9 @@ function toNuvioStream(link, sourceMeta) {
   const source = normalizeSourceName(link.source);
   const height = meta.height || fallbackMeta.height;
   const bytes = meta.bytes || fallbackMeta.bytes || 0;
+  const label = shortFileLabel(meta.title || fallbackMeta.title);
   const stream = {
-    name: `4KHDHub - ${source}${height ? ` ${height}p` : ""}`,
+    name: `4KHDHub - ${source}${height ? ` ${height}p` : ""}${label ? " · " + label : ""}`,
     title: meta.title || fallbackMeta.title || "4KHDHub",
     url: link.url,
     quality: height ? `${height}p` : void 0,
@@ -784,7 +813,7 @@ function getStreams(tmdbId, type, season, episode) {
     const { title, year } = tmdbDetails;
     console.log(`[4KHDHub] Search: ${title} (${year})`);
     const isSeries = type === "series" || type === "tv";
-    const pageUrl = yield fetchPageUrl(title, year, isSeries);
+    const pageUrl = yield fetchPageUrl(title, year, isSeries, season);
     if (!pageUrl) {
       console.log("[4KHDHub] Page not found");
       return [];
@@ -797,17 +826,26 @@ function getStreams(tmdbId, type, season, episode) {
     let itemsToProcess = [];
     if (isSeries && season && episode) {
       const seasonStr = "S" + String(season).padStart(2, "0");
-      const episodeStr = "Episode-" + String(episode).padStart(2, "0");
-      const episodeRegex = new RegExp(`Episode-?0*${episode}(?!\\\\d)`, "i");
       $("div.episodes-list div.season-item, .episode-item").each((_, el) => {
         const seasonText = $("div.episode-number, .episode-title", el).text();
-        if (seasonText.includes(seasonStr) || new RegExp(`S?0*${season}(?!\\\\d)`, "i").test(seasonText)) {
-          const downloadItems = $(".episode-download-item", el).filter((_2, item) => episodeRegex.test($(item).text()));
-          downloadItems.each((_2, item) => {
-            itemsToProcess.push(item);
+        if (seasonText.includes(seasonStr) || new RegExp(`\\bS?0*${season}(?!\\d)`, "i").test(seasonText)) {
+          $(".episode-download-item", el).each((_2, item) => {
+            const itemText = $(item).text() + " " + extractMetaFromItem($, item).title;
+            if (matchesSeasonEpisode(itemText, season, episode)) {
+              itemsToProcess.push(item);
+            }
           });
         }
       });
+      if (itemsToProcess.length === 0) {
+        $(".episode-download-item, .download-item").each((_, item) => {
+          const itemText = $(item).text() + " " + extractMetaFromItem($, item).title;
+          if (matchesSeasonEpisode(itemText, season, episode)) {
+            itemsToProcess.push(item);
+          }
+        });
+      }
+      console.log(`[4KHDHub] TV S${season}E${episode}: ${itemsToProcess.length} item(s) after episode filter`);
     } else {
       $(".download-item").each((_, el) => {
         itemsToProcess.push(el);
@@ -839,7 +877,10 @@ function getStreams(tmdbId, type, season, episode) {
         return [];
       }
     }));
-    return results.reduce((acc, val) => acc.concat(val), []).sort((a, b) => {
+    return results.reduce((acc, val) => acc.concat(val), []).filter((stream) => {
+      if (!isSeries || !season || !episode || !stream.title) return true;
+      return matchesSeasonEpisode(stream.title, season, episode);
+    }).sort((a, b) => {
       const aHeight = parseInt(a.quality) || 0;
       const bHeight = parseInt(b.quality) || 0;
       return bHeight - aHeight;
