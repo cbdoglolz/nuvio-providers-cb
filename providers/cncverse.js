@@ -54,7 +54,8 @@ const BASE_HEADERS = {
 
 const VERIFY_ORIGIN = "https://net22.cc";
 const VERIFY_REFERER = "https://net22.cc/verify2";
-const RATE_LIMIT_RE = /too\s*many\s*requests|short\s*period\s*of\s*time|rate\s*limit|access\s*limit|try\s*again\s*later/i;
+const RATE_LIMIT_RE = /too\s*many\s*requests|short\s*period\s*of\s*time|rate\s*limit|access\s*limit|try\s*again\s*later|please\s*wait|temporarily\s*unavailable|exceeded/i;
+const PLACEHOLDER_M3U8_RE = /too\s*many|rate\s*limit|access\s*limit|try\s*again|warning|placeholder|unavailable/i;
 const NEWTV_API_BASES = ["https://net52.cc", "https://net50.cc", "https://net22.cc"];
 
 let activeBase = NETMIRROR_DOMAINS[0];
@@ -317,7 +318,28 @@ function extractSubtitles(source, item, base) {
 }
 
 function isLikelyRateLimitUrl(url) {
-    return RATE_LIMIT_RE.test(String(url || ""));
+    const s = String(url || "");
+    return RATE_LIMIT_RE.test(s) || PLACEHOLDER_M3U8_RE.test(s);
+}
+
+function isPlaceholderM3u8Playlist(text) {
+    if (!text || !text.includes("#EXTM3U")) return false;
+    if (PLACEHOLDER_M3U8_RE.test(text) || RATE_LIMIT_RE.test(text)) return true;
+
+    const durations = [];
+    const re = /#EXTINF:([0-9.]+)/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+        durations.push(parseFloat(match[1]) || 0);
+        if (durations.length > 400) break;
+    }
+    if (!durations.length) return false;
+    const total = durations.reduce((sum, n) => sum + n, 0);
+    const maxSeg = Math.max.apply(null, durations);
+    // NetMirror rate-limit clip is ~10 minutes, usually a handful of short segments.
+    if (total >= 480 && total <= 720 && durations.length < 120) return true;
+    if (durations.length <= 4 && maxSeg >= 480 && maxSeg <= 720) return true;
+    return false;
 }
 
 function validatePlayableUrl(url, headers) {
@@ -326,21 +348,24 @@ function validatePlayableUrl(url, headers) {
     if (!lower.includes(".m3u8")) return Promise.resolve(true);
 
     return requestText(url, headers).then(text => {
-        if (!text) return true;
-        if (RATE_LIMIT_RE.test(text)) return false;
-
-        const durations = [];
-        const re = /#EXTINF:([0-9.]+)/g;
-        let match;
-        while ((match = re.exec(text)) !== null) {
-            durations.push(parseFloat(match[1]) || 0);
-            if (durations.length > 300) break;
+        if (!text || !text.includes("#EXTM3U")) {
+            console.log("[CNCVerse] Rejecting stream: m3u8 prefetch failed or invalid");
+            return false;
         }
-        const total = durations.reduce((sum, n) => sum + n, 0);
-        // NetMirror/CNCVerse rate-limit placeholder is usually about ten minutes.
-        if (total >= 540 && total <= 660 && durations.length < 80) return false;
+        if (isPlaceholderM3u8Playlist(text)) {
+            console.log("[CNCVerse] Rejecting stream: rate-limit placeholder playlist");
+            return false;
+        }
         return true;
     });
+}
+
+function isRateLimitPlayerResponse(response) {
+    if (!response) return true;
+    if (String(response.status || "").toLowerCase() !== "ok") return true;
+    const blob = JSON.stringify(response);
+    if (RATE_LIMIT_RE.test(blob) && !response.video_link && !response.url && !response.file) return true;
+    return false;
 }
 
 function playlistToStreams(base, platformKey, title, playlist, cookies) {
@@ -413,7 +438,10 @@ function fetchNewTvPlayer(base, platformKey, targetId, title) {
         const headers = newTvHeaders(apiBase, platform, `${base}/home`);
         return requestJson(url, headers).then(response => {
             const videoUrl = response && (response.video_link || response.url || response.file);
-            if (!response || response.status !== "ok" || !videoUrl || isLikelyRateLimitUrl(videoUrl)) {
+            if (!response || isRateLimitPlayerResponse(response) || !videoUrl || isLikelyRateLimitUrl(videoUrl)) {
+                if (videoUrl && isLikelyRateLimitUrl(videoUrl)) {
+                    console.log("[CNCVerse] player.php returned rate-limit URL");
+                }
                 return tryBase(index + 1);
             }
             const referer = response.referer || `${apiBase}/home`;
@@ -427,7 +455,13 @@ function fetchNewTvPlayer(base, platformKey, targetId, title) {
                 provider: "cncverse",
                 headers: playbackHeaders
             };
-            return validatePlayableUrl(stream.url, playbackHeaders).then(ok => ok ? [stream] : tryBase(index + 1));
+            return validatePlayableUrl(stream.url, playbackHeaders).then(ok => {
+                if (!ok) {
+                    console.log("[CNCVerse] Rejecting player stream after m3u8 validation");
+                    return tryBase(index + 1);
+                }
+                return [stream];
+            });
         }).catch(() => tryBase(index + 1));
     }
     return tryBase(0);

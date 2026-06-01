@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.14 - 2026-06-01
+
+- **CNCVerse `1.0.4-cb2`**: Stricter filtering for NetMirror's ~10-minute "too many requests" placeholder m3u8 (fail closed when prefetch fails, broader duration/text detection).
+- **CNCVerse is now disabled by default** in the manifest so Nuvio does not auto-pick a rate-limited mirror stream; enable manually only if you still want to try it.
+- If every CNCVerse mirror is rate-limited, the provider returns **no streams** instead of the warning video.
+
 ## 1.3.13 - 2026-06-01
 
 - **4KHDHub `1.0.14-cb4`**: Fixed zero-stream results when pages only linked `hubcloud.foo` (Cloudflare-blocked for desktop fetch).

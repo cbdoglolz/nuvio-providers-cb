@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.3.13",
-  "updatedAt": "2026-06-01T10:00:00Z",
+  "version": "1.3.14",
+  "updatedAt": "2026-06-01T11:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -114,15 +114,15 @@
     {
       "id": "cncverse",
       "name": "CNCVerse",
-      "description": "CNCVerse / NetflixMirror OTT streams using CloudStream's current newtv/player path, placeholder filtering, and embedded subtitle tracks.",
-      "version": "1.0.3-cb1",
+      "description": "Netflix/Prime/Hotstar mirror (OFF by default). Source often returns a 10-minute rate-limit warning video — enable only if you accept that risk.",
+      "version": "1.0.4-cb2",
       "author": "NivinCNC / cbrepo port",
       "supportedTypes": [
         "movie",
         "tv"
       ],
       "filename": "providers/cncverse.js",
-      "enabled": true,
+      "enabled": false,
       "limited": true,
       "formats": [
         "m3u8",
