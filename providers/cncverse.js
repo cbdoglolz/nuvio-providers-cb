@@ -55,6 +55,7 @@ const BASE_HEADERS = {
 const VERIFY_ORIGIN = "https://net22.cc";
 const VERIFY_REFERER = "https://net22.cc/verify2";
 const RATE_LIMIT_RE = /too\s*many\s*requests|short\s*period\s*of\s*time|rate\s*limit|access\s*limit|try\s*again\s*later/i;
+const NEWTV_API_BASES = ["https://net52.cc", "https://net50.cc", "https://net22.cc"];
 
 let activeBase = NETMIRROR_DOMAINS[0];
 let globalCookie = "";
@@ -377,6 +378,61 @@ function playlistToStreams(base, platformKey, title, playlist, cookies) {
     return Promise.all(tasks).then(items => items.filter(Boolean));
 }
 
+function newTvHeaders(base, platform, referer) {
+    return Object.assign({}, BASE_HEADERS, {
+        "Accept": "application/json,text/plain,*/*",
+        "Origin": base,
+        "Referer": referer || `${base}/home`,
+        "Cookie": `hd=on; ott=${platform.ott}`,
+        "Usertoken": ""
+    });
+}
+
+function newTvPlaybackHeaders(base, referer) {
+    return {
+        "Referer": referer || `${base}/home`,
+        "Origin": base,
+        "User-Agent": BASE_HEADERS["User-Agent"]
+    };
+}
+
+function apiBasesFor(base) {
+    const out = [];
+    addUnique(out, base);
+    NEWTV_API_BASES.forEach(apiBase => addUnique(out, apiBase));
+    return out;
+}
+
+function fetchNewTvPlayer(base, platformKey, targetId, title) {
+    const platform = PLATFORM_MAP[platformKey];
+    const bases = apiBasesFor(base);
+    function tryBase(index) {
+        if (index >= bases.length) return Promise.resolve([]);
+        const apiBase = bases[index];
+        const url = `${apiBase}/newtv/player.php?id=${encodeURIComponent(targetId)}`;
+        const headers = newTvHeaders(apiBase, platform, `${base}/home`);
+        return requestJson(url, headers).then(response => {
+            const videoUrl = response && (response.video_link || response.url || response.file);
+            if (!response || response.status !== "ok" || !videoUrl || isLikelyRateLimitUrl(videoUrl)) {
+                return tryBase(index + 1);
+            }
+            const referer = response.referer || `${apiBase}/home`;
+            const playbackHeaders = newTvPlaybackHeaders(apiBase, referer);
+            const stream = {
+                name: `CNCVerse ${platform.label} Auto`,
+                title: `${title} Auto`,
+                url: absolutize(apiBase, videoUrl),
+                quality: "Auto",
+                type: "direct",
+                provider: "cncverse",
+                headers: playbackHeaders
+            };
+            return validatePlayableUrl(stream.url, playbackHeaders).then(ok => ok ? [stream] : tryBase(index + 1));
+        }).catch(() => tryBase(index + 1));
+    }
+    return tryBase(0);
+}
+
 function fetchFromPlatform(base, platformKey, info, mediaType, season, episode, cookies) {
     const platform = PLATFORM_MAP[platformKey];
     return findBestResult(base, platform, info, mediaType, season, cookies).then(result => {
@@ -390,10 +446,10 @@ function fetchFromPlatform(base, platformKey, info, mediaType, season, episode, 
                     return getAllEpisodes(base, contentId, postData || {}, platform, cookies).then(episodes => {
                         const targetEp = pickEpisode(episodes, season, episode);
                         if (!targetEp) return [];
-                        return fetchPlaylist(base, platformKey, targetEp.id, info.title, cookies);
+                        return fetchNewTvPlayer(base, platformKey, targetEp.id, info.title);
                     });
                 }
-                return fetchPlaylist(base, platformKey, targetId, info.title, cookies);
+                return fetchNewTvPlayer(base, platformKey, targetId, info.title);
             });
     }).catch(err => {
         console.log(`[CNCVerse] ${platformKey} failed: ${err && err.message ? err.message : String(err)}`);

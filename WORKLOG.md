@@ -25,6 +25,19 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 
 ## 2026-06-01
 
+### 1.3.12 - CNCVerse newtv/player playback route
+
+- User report after testing 1.3.11: *Sherlock* and *Fight Club* still played a 10-minute "too many requests in short period of time" warning video through CNCVerse.
+- Diagnosis: 1.3.11 only filtered the old `/mobile/.../playlist.php` route; CloudStream's current CNC/DisneyStudio provider loads playable links through `/newtv/player.php?id=...` and reads `video_link`.
+- Changed `providers/cncverse.js`:
+  - Added `fetchNewTvPlayer()` and `newTvHeaders()` helpers.
+  - `fetchFromPlatform()` now returns only the `/newtv/player.php` `video_link` stream when `status === "ok"`.
+  - The old playlist route remains in the file but is no longer used for playback, to avoid exposing the known 10-minute warning placeholder.
+  - Existing m3u8/rate-limit validation still runs before a stream is returned to Nuvio.
+- Bumped repo manifest to `1.3.12`.
+- Bumped CNCVerse to `1.0.3-cb1`.
+- Needs device validation for *Sherlock*, *Fight Club*, and *Dorohedoro*. If still empty, the next step is to identify CloudStream's exact `resolveApiUrl()` host and `buildNewTvHeaders()` values from upstream source.
+
 ### 1.3.11 - CNCVerse placeholder filtering
 
 - User report: CNCVerse search for *Sherlock* returned `CNCVerse Prime Video Auto` plus two qualities, but playback was a 10-minute "too many requests in short period of time" video. CloudStream CNC does not show this problem.

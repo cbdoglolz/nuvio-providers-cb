@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.12 - 2026-06-01
+
+- **CNCVerse `1.0.3-cb1`**: Stop using the old `/mobile/.../playlist.php` playback path that still exposed the 10-minute "too many requests" warning video on device.
+- Switched playback extraction to CloudStream's current `/newtv/player.php?id=...` flow, returning only the `video_link` stream when that endpoint reports `status: ok`.
+- Kept the existing m3u8 pre-validation so bad warning playlists are filtered before Nuvio sees them.
+
 ## 1.3.11 - 2026-06-01
 
 - **CNCVerse `1.0.2-cb1`**: Changed the NetMirror/CNCVerse verify flow back to the CloudStream-style `net22.cc/verify2` origin/referer while still trying current playback domains.
