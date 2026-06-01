@@ -172,3 +172,4 @@ git push origin main   # 用户要求：改完默认 push；触发 publish.yml
 ## 12. KissKH（备忘，未做）
 
 `kkey` 每集一次性 token；Phisher 用 `local.properties` 的 `KissKh=` / `KisskhSub=` URL 前缀。公开 repo 无稳定 key。
+> Mandatory handoff rule: read and update `WORKLOG.md` on every repair round. `HANDOFF.md` is the status overview; `WORKLOG.md` is the step-by-step ledger for Cursor/Codex continuation.

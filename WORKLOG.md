@@ -1,0 +1,84 @@
+# cbrepo Worklog
+
+This file is the handoff ledger for Codex/Cursor. Update it on every repair round.
+
+## Operating Rules
+
+- Nuvio subscription URL must stay:
+  `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`
+- Do not tell the user to use `raw.githubusercontent.com/.../main/manifest.json` or `cdn.jsdelivr.net/...@main/manifest.json`.
+- Every provider change must update:
+  - top-level `manifest.json` version
+  - changed scraper `version`
+  - `CHANGELOG.md`
+  - `HANDOFF.md`
+  - this `WORKLOG.md`
+- If gh-pages output changes, `.github/workflows/publish.yml` must purge `@gh-pages` after deploy.
+- Before commit, run:
+  - `node --check providers/<changed>.js`
+  - `node --check scripts/patch-providers-for-nuvio.js` when patch layer changes
+  - `node scripts/patch-providers-for-nuvio.js _site/providers` after copying providers to `_site`
+  - confirm patched provider contains `__CB_REPO_NUVIO_PATCHED__`
+  - `git diff --check`
+- Do not commit `_site/`; it is only a local deploy simulation folder.
+- If Codex cannot push because GitHub 443 is blocked, record the exact local commit and tell the user/Cursor to run `git push origin main`.
+
+## 2026-06-01
+
+### 1.3.8 - Nuvio patch metadata fallback
+
+- Commit: `e1d44a5 Harden Nuvio patch metadata fallback`
+- Changed `scripts/patch-providers-for-nuvio.js`.
+- Added object-style Nuvio argument handling.
+- Added built-in IMDb/TMDB metadata fallback for:
+  - `tt0137523` -> movie TMDB `550` (*Fight Club*)
+  - `tt1475582` -> TV TMDB `19885` (*Sherlock*)
+- Bumped all enabled scraper versions so Nuvio redownloads provider JS.
+- Local verification:
+  - patched `_site/providers/*`
+  - confirmed `__CB_REPO_NUVIO_PATCHED__`
+  - confirmed `tt0137523` maps to `550`
+  - confirmed `tt1475582` with `series` maps to TV `19885`
+- Limitation: local sandbox external fetches still failed, so real stream output required device testing.
+
+### 1.3.9 - CNCVerse and MovieBox captions
+
+- Commit: `3790fd9 Add CNCVerse and prioritize MovieBox captions`
+- Added `providers/cncverse.js`.
+- Added `cncverse` to `manifest.json`.
+- CNCVerse uses NetMirror/CNCVerse mobile endpoints:
+  - `search.php`
+  - `post.php`
+  - `episodes.php`
+  - `playlist.php`
+- Platform order: Netflix, Prime Video, Hotstar, Disney.
+- Added subtitle extraction and Chinese/zh/default caption prioritization.
+- Updated `providers/moviebox.js` caption mapping so Chinese captions are marked and sorted first.
+- Local verification:
+  - `node --check providers/cncverse.js`
+  - `node --check providers/moviebox.js`
+  - patched `_site/providers`
+  - confirmed `_site/providers/cncverse.js` contains `__CB_REPO_NUVIO_PATCHED__`
+- Limitation: local sandbox could not extract CNCVerse cookie from `net50/net52/net22`, so Dorohedoro output needs phone/device validation.
+
+### 1.3.10 - gh-pages CDN purge fix
+
+- Commit: `4abda74 Purge gh-pages CDN after publish`
+- Root cause: `publish.yml` only purged jsDelivr `@main`; the recommended subscription uses `@gh-pages`, so phones could remain stuck on old manifests such as `1.3.8`.
+- Fixed `.github/workflows/publish.yml` to purge `@gh-pages` after deploying.
+- Purged paths include:
+  - `manifest.json`
+  - `subscribe.json`
+  - `VERSION.txt`
+  - `providers/moviebox.js`
+  - `providers/cncverse.js`
+  - key existing providers
+- Bumped repo version to `1.3.10`.
+- Bumped `cncverse` to `1.0.1-cb1`.
+- Bumped `moviebox` to `1.1.8-cb10`.
+- Local verification:
+  - `node --check providers/cncverse.js`
+  - `node --check providers/moviebox.js`
+  - `node --check scripts/patch-providers-for-nuvio.js`
+  - `git diff --check`
+- Push status: Codex local network could not reach GitHub 443. User must push `4abda74` or later.
