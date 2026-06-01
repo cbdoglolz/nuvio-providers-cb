@@ -1,6 +1,7 @@
 # On every push to main:
-# 1) Purge jsDelivr @main (so refresh works for users on the CDN URL)
-# 2) Publish manifest + providers to gh-pages (enable Pages once: branch gh-pages / root)
+# 1) Purge old @main cache for anyone still using legacy URLs.
+# 2) Publish manifest + patched providers to gh-pages.
+# 3) Purge @gh-pages so the recommended Nuvio subscription refreshes quickly.
 name: Publish plugin
 
 on:
@@ -18,7 +19,7 @@ jobs:
       - name: Purge jsDelivr @main cache
         run: |
           set -e
-          for path in manifest.json subscribe.json providers/moviebox.js providers/4khdhub.js providers/hdhub4u.js providers/vixsrc.js; do
+          for path in manifest.json subscribe.json providers/moviebox.js providers/cncverse.js providers/4khdhub.js providers/hdhub4u.js providers/vixsrc.js; do
             code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/${path}")
             echo "purge ${path}: HTTP ${code}"
           done
@@ -59,3 +60,15 @@ jobs:
           publish_dir: ./_site
           publish_branch: gh-pages
           force_orphan: true
+
+  purge-gh-pages:
+    runs-on: ubuntu-latest
+    needs: publish-gh-pages
+    steps:
+      - name: Purge jsDelivr @gh-pages cache
+        run: |
+          set -e
+          for path in manifest.json subscribe.json VERSION.txt providers/moviebox.js providers/cncverse.js providers/4khdhub.js providers/hdhub4u.js providers/vixsrc.js; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/${path}")
+            echo "purge gh-pages ${path}: HTTP ${code}"
+          done

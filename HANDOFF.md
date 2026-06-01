@@ -3,13 +3,13 @@
 > **最后更新：2026-06-01**  
 > **仓库：** `https://github.com/cbdoglolz/nuvio-providers-cb`（fork，manifest 名 **cbrepo**）  
 > **分支：** `main`（已与 `origin/main` 同步）  
-> **最新版本：** manifest **1.3.9**，最新 commit **待 push 后确认**
+> **最新版本：** manifest **1.3.10**，最新 commit **待 push 后确认**
 
 ---
 
 ## 0. 给 Codex 的一句话
 
-用户在 Nuvio 用 **cbrepo** 插件；**HdHub 单独插件里的 4KHDHub 能搜到片，cbrepo 里 12 个源曾全部搜不到**。已修 CDN 订阅、MovieBox Hermes、整仓 Nuvio 兼容层（1.3.5–1.3.9）。1.3.9 新增 **CNCVerse / NetflixMirror** provider，并加强 MovieBox 字幕映射；**用户是否已在真机验证 1.3.9 尚不明确**。请读本文 + [NUVIO_SYNC.md](./NUVIO_SYNC.md)，默认 **push 到 main**（用户要求更新完就推送）。
+用户在 Nuvio 用 **cbrepo** 插件；**HdHub 单独插件里的 4KHDHub 能搜到片，cbrepo 里 12 个源曾全部搜不到**。已修 CDN 订阅、MovieBox Hermes、整仓 Nuvio 兼容层（1.3.5–1.3.10）。1.3.9 新增 **CNCVerse / NetflixMirror** provider，并加强 MovieBox 字幕映射；1.3.10 修复 `@gh-pages` CDN purge。**用户是否已在真机验证 1.3.10 尚不明确**。请读本文 + [NUVIO_SYNC.md](./NUVIO_SYNC.md)，默认 **push 到 main**（用户要求更新完就推送）。
 
 ---
 
@@ -23,7 +23,7 @@
 | 参考 CS | CNCVerse **MovieBoxProvider**（`api3.aoneroom.com`）— 神探夏洛克中文字幕可用 |
 | 对比插件 | **HdHub**（非本 repo）里 4KHDHub **能**出搏击俱乐部 |
 
-**成功标准：** Dorohedoro 在 **CNCVerse** 能出 NetflixMirror 源并带字幕；神探夏洛克 S1E1 在 **MovieBox** 能出源并带字幕；插件版本刷新后显示 **1.3.9**；日志有 `[cbrepo:providerId]`。
+**成功标准：** Dorohedoro 在 **CNCVerse** 能出 NetflixMirror 源并带字幕；神探夏洛克 S1E1 在 **MovieBox** 能出源并带字幕；插件版本刷新后显示 **1.3.10**；日志有 `[cbrepo:providerId]`。
 
 ---
 
@@ -76,6 +76,7 @@ scripts/patch-providers-for-nuvio.js  ← 部署时注入兼容层
 | 1.3.5 | `515df9e` | MovieBox Hermes（去 getter/spread）、m3u8、日志 |
 | 1.3.5–6 | `4657d4f`…`f06a22e` | CDN/gh-pages 发布流程、NUVIO_SYNC |
 | 1.3.6 | `7f4ca79` | MovieBox 设备端 play-info + bearer |
+| **1.3.10** | 待确认 | **publish.yml 部署 gh-pages 后 purge jsDelivr @gh-pages，避免手机一直看到 1.3.8 旧 manifest** |
 | **1.3.9** | 待确认 | **新增 CNCVerse / NetflixMirror provider；MovieBox captions 标记中文并优先排序** |
 | **1.3.8** | 待确认 | **Nuvio patch 加强：object-style 参数、Fight Club/Sherlock IMDb/TMDB 元数据兜底、全 scraper 版本 cache bust** |
 | **1.3.7** | **`8c7aa28`** | **整仓 Nuvio patch + manifest formats + 4KHDHub type:direct** |

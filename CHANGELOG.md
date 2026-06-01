@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.10 - 2026-06-01
+
+- **Publish workflow**: Purge jsDelivr `@gh-pages` after the gh-pages deploy. The previous workflow only purged `@main`, so the recommended Nuvio URL could keep showing an older manifest such as `1.3.8`.
+- **Cache bust**: Bumped repo version plus CNCVerse / MovieBox scraper versions so Nuvio refresh sees a clear new version after deploy.
+
 ## 1.3.9 - 2026-06-01
 
 - **CNCVerse `1.0.0-cb1`**: Added a focused CNC Verse / NetflixMirror port as its own provider. It uses the NetMirror mobile endpoints (`search/post/episodes/playlist`), tries Netflix first, then Prime Video / Hotstar / Disney, and carries subtitle tracks through to Nuvio.
