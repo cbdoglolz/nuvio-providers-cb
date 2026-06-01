@@ -82,3 +82,23 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
   - `node --check scripts/patch-providers-for-nuvio.js`
   - `git diff --check`
 - Push status: Codex local network could not reach GitHub 443. User must push `4abda74` or later.
+
+### 1.3.10 - manual gh-pages publish fallback
+
+- Symptom reported by user: recommended subscription URL still showed `1.3.8` after pushing `main`.
+- Local diagnosis:
+  - `origin/main` was at `019f8b9`, so main had the latest code.
+  - `origin/gh-pages` was still `d7b850b deploy: 7f4ca798ee828dd2c35402091627c529b7a91516`, so the published branch was stale.
+- Action taken:
+  - Generated `_site` from current `main`.
+  - Ran `node scripts/patch-providers-for-nuvio.js _site/providers`.
+  - Confirmed `_site/providers/cncverse.js` contains `__CB_REPO_NUVIO_PATCHED__`.
+  - Created a separate worktree at `C:\Users\cbdog\Documents\New project\nuvio-providers-cb-gh-pages`.
+  - Copied `_site` output into that `gh-pages` worktree.
+  - Committed `gh-pages` locally as `7c7a9c7 deploy: cbrepo 1.3.10`.
+- Required user/Cursor push:
+  - `cd "C:\Users\cbdog\Documents\New project\nuvio-providers-cb-gh-pages"`
+  - `git push origin gh-pages`
+- After pushing, verify:
+  - `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json` shows `"version": "1.3.10"`.
+  - `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/cncverse.js` contains `__CB_REPO_NUVIO_PATCHED__`.
