@@ -1,13 +1,13 @@
 {
   "name": "cbrepo",
-  "version": "1.3.6",
-  "updatedAt": "2026-06-01T06:00:00Z",
+  "version": "1.3.7",
+  "updatedAt": "2026-06-01T12:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
       "name": "4KHDHub",
       "description": "4KHDHub direct links (capped parallel HubCloud resolution for faster fetch)",
-      "version": "1.0.12-cb1",
+      "version": "1.0.13-cb2",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -16,7 +16,8 @@
       "filename": "providers/4khdhub.js",
       "enabled": true,
       "formats": [
-        "mkv"
+        "mkv",
+        "mp4"
       ],
       "logo": "https://www.google.com/s2/favicons?domain=4khdhub.click&sz=128",
       "contentLanguage": [
@@ -58,7 +59,8 @@
       "filename": "providers/uhdmovies.js",
       "enabled": true,
       "formats": [
-        "mkv"
+        "mkv",
+        "mp4"
       ],
       "logo": "https://www.google.com/s2/favicons?domain=uhdmovies.pink&sz=128",
       "contentLanguage": [
@@ -78,7 +80,8 @@
       "filename": "providers/moviesmod.js",
       "enabled": true,
       "formats": [
-        "mkv"
+        "mkv",
+        "mp4"
       ],
       "logo": "https://www.google.com/s2/favicons?domain=moviesmod.farm&sz=128",
       "contentLanguage": [
@@ -98,7 +101,9 @@
       "filename": "providers/streamflix.js",
       "enabled": true,
       "formats": [
-        "mkv"
+        "mkv",
+        "mp4",
+        "m3u8"
       ],
       "logo": "https://streamflix.app/assets/images/logo-text-148x72.png",
       "contentLanguage": [
@@ -110,7 +115,7 @@
       "id": "moviebox",
       "name": "MovieBox",
       "description": "MovieBox streaming with expanded title aliases and TV resource-page fallback.",
-      "version": "1.1.6-cb6",
+      "version": "1.1.7-cb7",
       "author": "Nuvio Team",
       "supportedTypes": [
         "movie",
@@ -143,6 +148,10 @@
       ],
       "filename": "providers/vixsrc.js",
       "enabled": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
       "logo": "https://vixsrc.to/favicon.ico",
       "contentLanguage": [
         "en"

@@ -82,6 +82,31 @@ https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@515df9e/manifest.json
 
 ---
 
+## HdHub 能搜到、cbrepo 全挂？
+
+说明 **不是 4KHDHub 网站坏了**，而是 **cbrepo 插件在手机上没把片源交给 Nuvio**。
+
+| 现象 | 含义 |
+|------|------|
+| 单独 **HdHub** 插件能出 4KHDHub | 上游/别的仓库的脚本或订阅方式可用 |
+| **cbrepo** 里 12 个源全空 | 常见：传了 **IMDb id（tt…）** 而脚本只认数字 TMDB、或 **没挂 `global.getStreams`**、或 **manifest `formats` 把 mp4/m3u8 滤掉** |
+
+**1.3.7+** 起，gh-pages 部署的每个 provider 会自动包一层兼容（日志里搜 `[cbrepo:4khdhub]`、`[cbrepo:moviebox]`）：
+
+- `tt0137523` → TMDB `find` API 再搜
+- `series` / `show` → `tv`
+- 保证 `global.getStreams` 与 `module.exports`
+
+自检：浏览器打开（应能下载一大段 JS，且文件里含 `__CB_REPO_NUVIO_PATCHED__`）：
+
+```
+https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/4khdhub.js
+```
+
+若 **没有** 这行字符串 → 订阅的仍是旧包，请删 cbrepo 后用下面 URL 重装。
+
+---
+
 ## 不要用的 URL
 
 - `https://raw.githubusercontent.com/cbdoglolz/nuvio-providers-cb/main/manifest.json`（`@main` 易缓存，**刷新无效**）

@@ -34,6 +34,7 @@ jobs:
           mkdir -p _site/providers
           cp manifest.json _site/
           cp providers/*.js _site/providers/
+          node scripts/patch-providers-for-nuvio.js _site/providers
           node -e "
             const m = require('./manifest.json');
             const fs = require('fs');

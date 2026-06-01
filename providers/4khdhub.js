@@ -753,6 +753,7 @@ function toNuvioStream(link, sourceMeta) {
     title: meta.title || fallbackMeta.title || "4KHDHub",
     url: link.url,
     quality: height ? `${height}p` : void 0,
+    type: "direct",
     headers: {
       "User-Agent": USER_AGENT
     },

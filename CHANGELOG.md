@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.7 - 2026-06-01
+
+- **All providers (deploy)**: Nuvio device compat wrapper on gh-pages build — normalize `movie`/`tv`/`series`, resolve `tt…` IMDb ids via Cinemeta, ensure `global.getStreams`, log `[cbrepo:providerId]` stream counts.
+- **Manifest**: Broaden `formats` (mp4/m3u8) so Nuvio does not drop valid streams; **4KHDHub** `type: "direct"`.
+- **MovieBox `1.1.7-cb7`**: Same play-info path as 1.3.6 (version bump for cache).
+
 ## 1.3.6 - 2026-06-01
 
 - **MovieBox `1.1.6-cb6`**: Fix empty results on device — use CNCVerse `play-info` + `x-user` bearer for movies and TV (not only `resourceDetectors`); parallel search/season checks; Hermes-safe URL signing; TMDB + Cinemeta metadata fallback; `type: "direct"` on streams.
