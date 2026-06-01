@@ -52,6 +52,10 @@ const BASE_HEADERS = {
     "X-Requested-With": "XMLHttpRequest"
 };
 
+const VERIFY_ORIGIN = "https://net22.cc";
+const VERIFY_REFERER = "https://net22.cc/verify2";
+const RATE_LIMIT_RE = /too\s*many\s*requests|short\s*period\s*of\s*time|rate\s*limit|access\s*limit|try\s*again\s*later/i;
+
 let activeBase = NETMIRROR_DOMAINS[0];
 let globalCookie = "";
 let cookieTimestamp = 0;
@@ -146,6 +150,13 @@ function requestJson(url, headers) {
     });
 }
 
+function requestText(url, headers) {
+    return fetch(url, { headers: headers || BASE_HEADERS }).then(res => {
+        if (!res || !res.ok) return "";
+        return res.text();
+    }).catch(() => "");
+}
+
 function randomUuid() {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0;
@@ -169,8 +180,8 @@ function bypass() {
             method: "POST",
             headers: Object.assign({}, BASE_HEADERS, {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "Origin": base,
-                "Referer": `${base}/verify2`
+                "Origin": VERIFY_ORIGIN,
+                "Referer": VERIFY_REFERER
             }),
             body: `g-recaptcha-response=${randomUuid()}`,
             redirect: "manual"
@@ -304,10 +315,37 @@ function extractSubtitles(source, item, base) {
     }).filter(Boolean);
 }
 
+function isLikelyRateLimitUrl(url) {
+    return RATE_LIMIT_RE.test(String(url || ""));
+}
+
+function validatePlayableUrl(url, headers) {
+    const lower = String(url || "").toLowerCase();
+    if (!url || isLikelyRateLimitUrl(url)) return Promise.resolve(false);
+    if (!lower.includes(".m3u8")) return Promise.resolve(true);
+
+    return requestText(url, headers).then(text => {
+        if (!text) return true;
+        if (RATE_LIMIT_RE.test(text)) return false;
+
+        const durations = [];
+        const re = /#EXTINF:([0-9.]+)/g;
+        let match;
+        while ((match = re.exec(text)) !== null) {
+            durations.push(parseFloat(match[1]) || 0);
+            if (durations.length > 300) break;
+        }
+        const total = durations.reduce((sum, n) => sum + n, 0);
+        // NetMirror/CNCVerse rate-limit placeholder is usually about ten minutes.
+        if (total >= 540 && total <= 660 && durations.length < 80) return false;
+        return true;
+    });
+}
+
 function playlistToStreams(base, platformKey, title, playlist, cookies) {
     const platform = PLATFORM_MAP[platformKey];
-    const out = [];
-    if (!Array.isArray(playlist)) return out;
+    const tasks = [];
+    if (!Array.isArray(playlist)) return Promise.resolve([]);
     playlist.forEach(item => {
         const sources = item && Array.isArray(item.sources) ? item.sources : [];
         sources.forEach(source => {
@@ -315,6 +353,12 @@ function playlistToStreams(base, platformKey, title, playlist, cookies) {
             if (!file) return;
             const quality = parseQuality(source.label || source.quality || source.name);
             const subtitles = extractSubtitles(source, item, base);
+            const headers = {
+                "Referer": `${base}/home`,
+                "Origin": base,
+                "User-Agent": BASE_HEADERS["User-Agent"],
+                "Cookie": `hd=on; ott=${platform.ott}; ${cookies}`
+            };
             const stream = {
                 name: `CNCVerse ${platform.label} ${quality}`,
                 title: `${title} ${quality}`,
@@ -322,19 +366,15 @@ function playlistToStreams(base, platformKey, title, playlist, cookies) {
                 quality,
                 type: "direct",
                 provider: "cncverse",
-                headers: {
-                    "Referer": `${base}/home`,
-                    "User-Agent": BASE_HEADERS["User-Agent"],
-                    "Cookie": `hd=on; ott=${platform.ott}; ${cookies}`
-                }
+                headers
             };
             if (subtitles.length) {
                 stream.subtitles = subtitles;
             }
-            out.push(stream);
+            tasks.push(validatePlayableUrl(stream.url, headers).then(ok => ok ? stream : null));
         });
     });
-    return out;
+    return Promise.all(tasks).then(items => items.filter(Boolean));
 }
 
 function fetchFromPlatform(base, platformKey, info, mediaType, season, episode, cookies) {

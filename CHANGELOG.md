@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.11 - 2026-06-01
+
+- **CNCVerse `1.0.2-cb1`**: Changed the NetMirror/CNCVerse verify flow back to the CloudStream-style `net22.cc/verify2` origin/referer while still trying current playback domains.
+- Added playback validation for CNCVerse m3u8 links. Streams that resolve to the "too many requests / short period" placeholder or the typical ten-minute access-limit playlist are discarded instead of being shown in Nuvio.
+- This should prevent bad CNCVerse Prime/Auto placeholder entries from appearing; device testing is still needed to confirm whether NetflixMirror returns valid streams on residential/mobile network.
+
 ## 1.3.10 - 2026-06-01
 
 - **Publish workflow**: Purge jsDelivr `@gh-pages` after the gh-pages deploy. The previous workflow only purged `@main`, so the recommended Nuvio URL could keep showing an older manifest such as `1.3.8`.

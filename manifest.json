@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.3.10",
-  "updatedAt": "2026-06-01T18:00:00Z",
+  "version": "1.3.11",
+  "updatedAt": "2026-06-01T19:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -114,8 +114,8 @@
     {
       "id": "cncverse",
       "name": "CNCVerse",
-      "description": "CNCVerse / NetflixMirror OTT streams with embedded subtitle tracks, prioritizing Netflix sources.",
-      "version": "1.0.1-cb1",
+      "description": "CNCVerse / NetflixMirror OTT streams with CloudStream-style verify flow, placeholder filtering, and embedded subtitle tracks.",
+      "version": "1.0.2-cb1",
       "author": "NivinCNC / cbrepo port",
       "supportedTypes": [
         "movie",

@@ -25,6 +25,19 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 
 ## 2026-06-01
 
+### 1.3.11 - CNCVerse placeholder filtering
+
+- User report: CNCVerse search for *Sherlock* returned `CNCVerse Prime Video Auto` plus two qualities, but playback was a 10-minute "too many requests in short period of time" video. CloudStream CNC does not show this problem.
+- Changed `providers/cncverse.js`:
+  - Verify request now uses CloudStream/old NetMirror-style `Origin: https://net22.cc` and `Referer: https://net22.cc/verify2`.
+  - Added `RATE_LIMIT_RE` detection for "too many requests", "short period", "rate limit", "access limit", and related text.
+  - Added m3u8 pre-validation. If the playlist text contains rate-limit text or looks like the typical ten-minute placeholder playlist, the stream is discarded before Nuvio sees it.
+  - Added `Origin` to playback headers.
+- Bumped manifest to `1.3.11`.
+- Bumped CNCVerse to `1.0.2-cb1`.
+- Expected behavior: CNCVerse should no longer show known placeholder streams. If no valid NetflixMirror stream exists for a title, it should return no stream instead of a fake 10-minute warning video.
+- Needs device validation for *Sherlock* and *Dorohedoro* after publishing.
+
 ### 1.3.8 - Nuvio patch metadata fallback
 
 - Commit: `e1d44a5 Harden Nuvio patch metadata fallback`
