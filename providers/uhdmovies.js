@@ -170,8 +170,19 @@ function bypassHrefli(url) {
   return fetch(url, { headers: { "User-Agent": USER_AGENT } })
     .then(function (res) { return res.text(); })
     .then(function (html) {
+      if (/just a moment|cf-challenge/i.test(html)) {
+        console.log("[UHDMovies] Hrefli blocked by Cloudflare");
+        return null;
+      }
       var $ = cheerio.load(html);
       var formUrl = $("form#landing").attr("action");
+      if (!formUrl) {
+        console.log("[UHDMovies] Hrefli: no landing form");
+        return null;
+      }
+      if (!formUrl.startsWith("http")) {
+        formUrl = new URL(formUrl, url).toString();
+      }
       var formData = {};
       $("form#landing input").each(function (_, el) {
         formData[$(el).attr("name")] = $(el).attr("value") || "";
@@ -186,8 +197,12 @@ function bypassHrefli(url) {
         body: new URLSearchParams(formData).toString()
       });
     })
-    .then(function (res) { return res.text(); })
+    .then(function (res) {
+      if (!res || typeof res.text !== "function") return null;
+      return res.text();
+    })
     .then(function (html) {
+      if (!html) return null;
       var $ = cheerio.load(html);
       var formUrl = $("form#landing").attr("action");
       var formData = {};
@@ -207,11 +222,13 @@ function bypassHrefli(url) {
       });
     })
     .then(function (result) {
+      if (!result || !result.response) return null;
       return result.response.text().then(function (html) {
         return { html: html, formData: result.formData };
       });
     })
     .then(function (result) {
+      if (!result || !result.html) return null;
       var $ = cheerio.load(result.html);
       var script = $("script:contains(?go=)").html() || "";
       var skTokenMatch = script.match(/\?go=([^"]+)/);

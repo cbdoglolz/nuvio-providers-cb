@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.15 - 2026-06-01
+
+- Added [NUVIO_PLUGIN.md](./NUVIO_PLUGIN.md): Nuvio `manifest.json` plugin usage (not CloudStream `repo.json`), aligned with official [DOCUMENTATION](https://github.com/yoruix/nuvio-providers/blob/template/DOCUMENTATION.md).
+- **CI**: Fix gh-pages jsDelivr purge to list every `providers/*.js` from the repo (previous job had no checkout, so provider files were often not purged).
+- **UHDMovies** disabled by default: download pages only expose Hrefli links that are Cloudflare-blocked for server-side fetch.
+- Added `npm run test:patched` to verify patched providers the same way Nuvio loads them on device.
+
 ## 1.3.14 - 2026-06-01
 
 - **CNCVerse `1.0.4-cb2`**: Stricter filtering for NetMirror's ~10-minute "too many requests" placeholder m3u8 (fail closed when prefetch fails, broader duration/text detection).
