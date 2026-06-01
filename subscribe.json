@@ -1,8 +1,8 @@
 {
   "url": "https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json",
   "urlGithubIo": "https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json",
-  "version": "1.3.5",
-  "updatedAt": "2026-05-31T18:00:00Z",
-  "commit": "fa6a1f1",
+  "version": "1.3.7",
+  "updatedAt": "2026-06-01T12:00:00Z",
+  "commit": "8c7aa28",
   "warning": "Never use raw.githubusercontent.com/.../main or jsdelivr ...@main — both cache old manifests; refresh will not update."
 }

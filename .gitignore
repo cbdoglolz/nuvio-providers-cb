@@ -120,3 +120,6 @@ mbox.kt
 
 .gemini/
 gha-creds-*.json
+
+# Local gh-pages deploy test (patch-providers-for-nuvio.js)
+_site/
