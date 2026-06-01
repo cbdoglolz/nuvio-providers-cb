@@ -39,7 +39,8 @@ jobs:
             const fs = require('fs');
             const sha = process.env.GITHUB_SHA.slice(0, 7);
             const sub = {
-              url: 'https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json',
+              url: 'https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json',
+              urlGithubIo: 'https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json',
               fallbackUrl: 'https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@' + sha + '/manifest.json',
               version: m.version,
               updatedAt: m.updatedAt,
