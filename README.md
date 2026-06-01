@@ -10,11 +10,11 @@ A collection of streaming providers for the Nuvio app. Providers are JavaScript 
 ### Using in Nuvio App
 
 1. Open **Nuvio** > **Settings** > **Plugins**
-2. Add this repository URL:
+2. Add this repository URL (**use GitHub Pages — `@main` raw/jsdelivr URLs are CDN-cached and refresh will not update**):
    ```
-   https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/manifest.json
+   https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
    ```
-   If Nuvio still shows an old repo version (e.g. 1.2.5), delete the plugin and re-add using the jsdelivr URL above (bypasses raw.githubusercontent.com cache).
+   If the version is stuck (e.g. still 1.3.4 after we shipped 1.3.5), see **[NUVIO_SYNC.md](NUVIO_SYNC.md)** — delete the plugin and re-add with the **github.io** URL above (not `raw.githubusercontent.com/.../main`).
 3. Refresh and enable the providers you want
 
 ---

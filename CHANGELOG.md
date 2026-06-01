@@ -3,6 +3,7 @@
 ## 1.3.5 - 2026-05-31
 
 - **MovieBox `1.1.5-cb5`**: Hermes-safe provider load (no object-spread / getter headers that could skip the provider entirely in Nuvio); add `[MovieBox] Fetching...` logs like other scrapers; declare `m3u8` in manifest formats; tag streams with `provider: moviebox`.
+- **Subscribe / refresh**: Document CDN stale `@main` on raw.githubusercontent.com and jsDelivr; add GitHub Pages deploy + jsDelivr purge on push. **Use** `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json` **in Nuvio** (see [NUVIO_SYNC.md](./NUVIO_SYNC.md)).
 
 ## 1.3.4 - 2026-05-31
 

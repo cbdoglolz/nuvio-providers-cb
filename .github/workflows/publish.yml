@@ -1,0 +1,61 @@
+# Deploy manifest + providers to GitHub Pages (fresh on every push).
+# Purge jsDelivr @main cache so refresh works for users still on the CDN URL.
+name: Publish plugin (Pages + CDN purge)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build static site
+        run: |
+          mkdir -p _site/providers
+          cp manifest.json _site/
+          cp providers/*.js _site/providers/
+          node -e "
+            const m = require('./manifest.json');
+            const fs = require('fs');
+            const sub = {
+              url: 'https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json',
+              version: m.version,
+              updatedAt: m.updatedAt,
+              commit: process.env.GITHUB_SHA.slice(0, 7),
+              warning: 'Do not subscribe with raw.githubusercontent.com/.../main — that URL is CDN-cached and refresh will show old versions.'
+            };
+            fs.writeFileSync('_site/subscribe.json', JSON.stringify(sub, null, 2));
+            fs.writeFileSync('_site/VERSION.txt', m.version + '\\n' + process.env.GITHUB_SHA.slice(0, 7) + '\\n');
+          "
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Purge jsDelivr cache (@main)
+        run: |
+          for path in manifest.json providers/moviebox.js; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/${path}")
+            echo "purge ${path}: HTTP ${code}"
+          done

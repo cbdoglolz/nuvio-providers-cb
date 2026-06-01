@@ -1,123 +1,104 @@
-# Nuvio 插件版本刷不出来 — 说明与解决办法
+# Nuvio 插件版本刷不出来 — 原因与一劳永逸的订阅地址
 
-## 重要结论
+## 结论（请先读）
 
-**GitHub 上的 `manifest.json` 已经是最新的**（当前仓库顶层 `version` 见 [manifest.json](./manifest.json)）。  
-你在 Nuvio 里点「同步 / 刷新」后**版本号不变**，几乎总是下面两类原因之一，**不是我没 push**。
+**代码已经 push 到 GitHub，`main` 上就是最新版。**  
+你在 App 里点「刷新」仍显示 **1.3.4 / 1.3.3**，是因为 **订阅 URL 背后的 CDN 还在返回旧的 `manifest.json`**，不是没更新成功。
 
----
+| 你用的 URL | 实测 manifest 版本（push 1.3.5 后） |
+|------------|-------------------------------------|
+| `raw.githubusercontent.com/.../main/manifest.json` | **1.3.4（旧）** |
+| `cdn.jsdelivr.net/gh/.../main/manifest.json` | **1.3.3（更旧）** |
+| `raw.githubusercontent.com/.../515df9e/manifest.json` | **1.3.5（新）** |
+| **`cbdoglolz.github.io/.../manifest.json`（推荐）** | **每次 push 后自动部署最新** |
 
-## Nuvio 实际怎么判断「要不要更新」
-
-根据交接与真机现象，Nuvio 大致是这样工作的：
-
-1. **第一次添加**插件时：用你填的 URL 下载 `manifest.json`，再按里面的 `scrapers[].id` + `version` + `filename` 缓存每个 `.js` 文件。
-2. **之后点刷新**：只有当你**新拉到的 manifest** 里版本号变了，才会重新下载改过的 provider；否则继续用本地旧 JS。
-3. **若刷新时根本没拉到新 manifest**（CDN 缓存、网络、填错 URL、账号云端仍是旧配置），界面上的版本会**一直停在第一次安装时的数字**（例如 1.2.5）。
-
-所以：**改代码 + push 不等于手机自动变版本**；必须让 App **成功下载到新的 manifest.json**。
+所以：**不是让你「瞎折腾」**，而是必须把订阅地址从 **`@main` 的 raw/jsdelivr** 换成 **GitHub Pages**（只需改一次），之后点刷新才会像从前一样跟着变。
 
 ---
 
-## 为什么「以前会自动变，现在不会」
+## 为什么「以前点刷新就行，现在不行」
 
-常见变化：
+1. **`raw.githubusercontent.com/.../main` 有 CDN 缓存**（常见几分钟到更久），`@main` 不会立刻变成新文件。
+2. **`jsdelivr ...@main` 缓存更重**，我们实测比 raw 还旧。
+3. Nuvio 刷新 = **再次请求你当初填的那个 URL**。URL 不变、CDN 仍返回旧 JSON → 界面版本号永远不变。
+4. 你本地删插件、清缓存也没用：**只要重新添加的还是同一个 `@main` 链接，拿到的还是旧 manifest。**
 
-| 以前 | 现在 |
-|------|------|
-| 改得少，隔几天才升一次版本 | 一天内连续升 1.2.3 → 1.2.8，更容易撞上 CDN/App 缓存 |
-| 用 `npm start` + 局域网 `http://192.168.x.x:3000/manifest.json` 测 | 只用 GitHub raw，国内 CDN 易缓存 |
-| 每次会**删掉重装** cbrepo | 只点「同步」，旧 manifest 可能不更新 |
-| 只在 App 里加插件 | 还在 **nuvioapp.space 账号**里留着旧 Plugin URL，云端把旧配置同步回手机 |
+GitHub 网页上能看到最新 commit，和 raw `@main` 不是同一条缓存链路。
 
 ---
 
-## 30 秒自检（区分「GitHub 有」还是「手机没拉到」）
-
-用手机浏览器打开（不要用 Nuvio 内置页）：
+## 正确订阅地址（复制这一条）
 
 ```
-https://raw.githubusercontent.com/cbdoglolz/nuvio-providers-cb/main/manifest.json
+https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
 ```
 
-或（推荐，少缓存）：
+每次我们 push 到 `main`，GitHub Actions 会部署到 Pages，并尝试 purge jsDelivr 缓存。
 
-```
-https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/manifest.json
-```
+自检（手机浏览器打开，看 `"version"`）：
 
-看 JSON 里 `"version": "x.x.x"`：
-
-- **浏览器已是 1.2.8，Nuvio 仍显示 1.2.5** → 100% 是 **Nuvio / 账号 / App 缓存**，按下面「强制更新」做。
-- **浏览器也是 1.2.5** → 换网络、关 VPN、过几分钟再试，或改用 jsdelivr 链接。
+- Pages：`https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json`
+- 或查看：`https://cbdoglolz.github.io/nuvio-providers-cb/subscribe.json`
 
 ---
 
-## 强制更新（请按顺序做，不要只点刷新）
+## 一次性操作（之后刷新即可）
 
-### A. App 内插件
+1. **设置 → 插件 → 删除 cbrepo**（整仓删除）。
+2. **重新添加**，URL 用上面的 **github.io** 地址（不要用 raw、不要用 `@main` 的 jsdelivr）。
+3. 确认列表里 **cbrepo 版本** 与浏览器里 JSON 一致（当前应为 **1.3.5**）。
+4. 以后更新：**只点刷新** 即可（Pages 部署约 1–2 分钟）。
 
-1. **设置 → 插件 → 删除 cbrepo**（整仓删除，不是关开关）。
-2. **设置里清除 Nuvio 缓存**（有的话）；或 **强制停止 App** 再打开。
-3. **重新添加**，URL 用下面这一条（完整复制，必须含 `manifest.json`）：
+### 若用过 Nuvio 官网账号
 
-   ```
-   https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/manifest.json
-   ```
+打开 https://nuvioapp.space/account → **Plugins**，把旧 URL 改成 **github.io** 那条并保存，否则云端会把旧地址同步回手机。
 
-4. 确认列表里 **cbrepo 仓库版本** 与浏览器里一致（不要和 UHDMovies 的 `1.2.2-cb4` 搞混）。
+### 紧急：Pages 还没开好时
 
-### B. 若用过 Nuvio 官网账号
-
-1. 打开 https://nuvioapp.space/account → **Plugins**
-2. 删掉旧的 plugin，或把 URL 改成上面的 **jsdelivr** 地址并保存。
-3. 再打开 App，避免云端把旧 manifest 同步回来。
-
-### C. 仍不行时（钉死某一版）
-
-把 `@main` 换成具体 commit（示例，以 GitHub 最新为准）：
+可暂时用 **commit 钉死**（每次大版本可把 commit 换掉）：
 
 ```
-https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@8fa1909/manifest.json
+https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@515df9e/manifest.json
 ```
-
-每次大更新后把 commit 换掉再添加一次。
 
 ---
 
 ## 不要用的 URL
 
-- `https://github.com/yoruix/nuvio-providers`（上游，不是你的 fork）
-- `https://raw.githubusercontent.com/tapframe/...`（旧地址）
-- 只填仓库根路径、**没有** `manifest.json` 的地址
-- 和 jsdelivr **同时** 添加两个 cbrepo（会搞不清哪个在生效）
+- `https://raw.githubusercontent.com/cbdoglolz/nuvio-providers-cb/main/manifest.json`（`@main` 易缓存，**刷新无效**）
+- `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@main/manifest.json`（`@main` 更慢，**不推荐**）
+- 上游 `yoruix/nuvio-providers`、旧 `tapframe` 地址
+- 同时添加两个 cbrepo（不知道哪个在生效）
 
 ---
 
-## 开发者本地测试（版本一定跟着变）
+## Nuvio 怎么判断要不要更新
 
-电脑在项目目录执行：
+1. 第一次添加：下载 `manifest.json`，按 `scrapers[].id` + `version` 缓存各 `.js`。
+2. 之后刷新：只有 **新 manifest 里的版本号变了**，才会重新下载改过的 provider。
+3. 若 manifest 本身拉不到新的，界面会一直停在**第一次安装时**看到的数字。
+
+改 `providers/xxx.js` 时须同时升该 scraper 的 `"version"`，否则仓库号变了，单个源仍跑旧 JS。
+
+---
+
+## 开发者本地测试（不经过 CDN）
 
 ```bash
 npm start
 ```
 
-手机 Nuvio **开发版** → 设置 → Developer → Plugin Tester → 填：
+手机 **Developer → Plugin Tester**：
 
 ```
 http://你的电脑局域网IP:3000/manifest.json
 ```
 
-改完 `providers/*.js` 保存后，在 Tester 里重新 Fetch Manifest，**不经过 GitHub CDN**，所以不会出现「永远 1.2.5」。
-
 ---
 
-## 我们每次改代码时会动的版本号
+## 仓库里的版本号
 
-| 字段 | 作用 |
+| 字段 | 含义 |
 |------|------|
-| `manifest.json` 顶层 `"version"` | 你在插件列表里看到的 **cbrepo 仓库版本** |
-| 每个 scraper 的 `"version"` | 单个 provider（如 HDHub4u `1.1.5-cb2`） |
-| 改 `providers/xxx.js` 时**必须**同时升对应 scraper 的 version | 否则 Nuvio 认为 JS 没变，不重新下载 |
-
-顶层 version 只升、某个 provider 的 version 没升 → 仓库号会变，但那个 provider 仍跑旧代码。
+| `manifest.json` 顶层 `"version"` | 插件列表里的 **cbrepo 仓库版本** |
+| 各 scraper 的 `"version"` | 单个源（如 MovieBox `1.1.5-cb5`） |
