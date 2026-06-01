@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.5 - 2026-05-31
+
+- **MovieBox `1.1.5-cb5`**: Hermes-safe provider load (no object-spread / getter headers that could skip the provider entirely in Nuvio); add `[MovieBox] Fetching...` logs like other scrapers; declare `m3u8` in manifest formats; tag streams with `provider: moviebox`.
+
 ## 1.3.4 - 2026-05-31
 
 - **MovieBox `1.1.4-cb4`**: Align with CNCVerse MovieBoxProvider — API host `api3.aoneroom.com`, TV playback via `play-info` + `oneroom` client + session bearer (fixes 0 streams for series e.g. Sherlock); rank TV candidates with `season-info`; attach caption tracks from `get-stream-captions` (incl. 中文 when available).

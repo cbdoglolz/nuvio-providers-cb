@@ -26,34 +26,55 @@ function randomDeviceId() {
 
 const STREAM_DEVICE_ID = randomDeviceId();
 
+function buildStreamClientInfo() {
+    return JSON.stringify({
+        package_name: 'com.community.oneroom',
+        version_name: '3.0.13.0325.03',
+        version_code: 50020088,
+        os: 'android',
+        os_version: '13',
+        device_id: STREAM_DEVICE_ID,
+        install_store: 'ps',
+        gaid: '1b2212c1-dadf-43c3-a0c8-bd6ce48ae22d',
+        brand: 'google',
+        model: 'sdk_gphone64_x86_64',
+        system_language: 'en',
+        net: 'NETWORK_WIFI',
+        region: 'US',
+        timezone: 'Asia/Calcutta',
+        sp_code: '',
+        'X-Play-Mode': '1',
+        'X-Idle-Data': '1',
+        'X-Family-Mode': '0',
+        'X-Content-Mode': '0'
+    });
+}
+
 const STREAM_HEADERS = {
     'User-Agent': 'com.community.oneroom/50020088 (Linux; U; Android 13; en_US; sdk_gphone64_x86_64; Build/TQ3A.230901.001; Cronet/145.0.7582.0)',
     'Connection': 'keep-alive',
-    get 'x-client-info'() {
-        return JSON.stringify({
-            package_name: 'com.community.oneroom',
-            version_name: '3.0.13.0325.03',
-            version_code: 50020088,
-            os: 'android',
-            os_version: '13',
-            device_id: STREAM_DEVICE_ID,
-            install_store: 'ps',
-            gaid: '1b2212c1-dadf-43c3-a0c8-bd6ce48ae22d',
-            brand: 'google',
-            model: 'sdk_gphone64_x86_64',
-            system_language: 'en',
-            net: 'NETWORK_WIFI',
-            region: 'US',
-            timezone: 'Asia/Calcutta',
-            sp_code: '',
-            'X-Play-Mode': '1',
-            'X-Idle-Data': '1',
-            'X-Family-Mode': '0',
-            'X-Content-Mode': '0'
-        });
-    },
     'x-client-status': '0'
 };
+
+function getStreamClientInfo() {
+    return buildStreamClientInfo();
+}
+
+function mergePlaybackHeaders(base, referer, signCookie) {
+    const h = {
+        Referer: referer,
+        'User-Agent': base['User-Agent'] || STREAM_HEADERS['User-Agent']
+    };
+    if (signCookie) {
+        h.Cookie = signCookie;
+    }
+    return h;
+}
+
+function attachProvider(stream) {
+    stream.provider = 'moviebox';
+    return stream;
+}
 
 // Key Derivation using CryptoJS (Double Decode)
 const KEY_B64_DEFAULT = "NzZpUmwwN3MweFNOOWpxbUVXQXQ3OUVCSlp1bElRSXNWNjRGWnIyTw==";
@@ -171,16 +192,18 @@ function request(method, url, body = null, customHeaders = {}, opts = {}) {
         'x-client-token': xClientToken,
         'x-tr-signature': xTrSignature,
         'User-Agent': base['User-Agent'],
-        'x-client-info': base['x-client-info'],
-        'x-client-status': base['x-client-status'],
-        ...customHeaders
+        'x-client-info': useStream ? getStreamClientInfo() : HEADERS['x-client-info'],
+        'x-client-status': base['x-client-status']
     };
     if (headerContentType) {
         headers['Content-Type'] = headerContentType;
     }
     if (opts.bearer) {
-        headers['Authorization'] = `Bearer ${opts.bearer}`;
+        headers['Authorization'] = 'Bearer ' + opts.bearer;
     }
+    Object.keys(customHeaders).forEach(function (key) {
+        headers[key] = customHeaders[key];
+    });
 
     const options = { method, headers };
     if (body) {
@@ -245,7 +268,7 @@ function fetchTmdbDetails(tmdbId, mediaType) {
         .then(data => ({
             title: mediaType === 'movie' ? (data.title || data.original_title) : (data.name || data.original_name),
             year: (data.release_date || data.first_air_date || '').substring(0, 4),
-            imdbId: data.external_ids?.imdb_id,
+            imdbId: data.external_ids && data.external_ids.imdb_id,
             originalTitle: data.original_title || data.original_name,
             originalName: data.original_name
         }))
@@ -533,16 +556,13 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
             const quality = deriveQuality(rd);
             const formatType = getFormatType(url);
             const codec = rd.codecName ? ` ${String(rd.codecName).toUpperCase()}` : '';
-            out.push({
-                name: `MovieBox (${lang}) ${quality} [${formatType}]${codec}`,
+            out.push(attachProvider({
+                name: 'MovieBox (' + lang + ') ' + quality + ' [' + formatType + ']' + codec,
                 title: formatTitle(mediaTitle, season, episode, mediaType),
-                url,
-                quality,
-                headers: {
-                    "Referer": API_BASE,
-                    "User-Agent": HEADERS['User-Agent']
-                }
-            });
+                url: url,
+                quality: quality,
+                headers: mergePlaybackHeaders(HEADERS, API_BASE, null)
+            }));
         });
         return out;
     }
@@ -594,18 +614,14 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
                 const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
                 const streamId = stream.id || `${playSubjectId}|${season}|${episode}`;
                 const langLabel = String(lang || 'Original').replace(/dub/gi, 'Audio');
-                const entry = {
-                    name: `MovieBox (${langLabel}) ${quality} [${getFormatType(stream.url)}]`,
+                const entry = attachProvider({
+                    name: 'MovieBox (' + langLabel + ') ' + quality + ' [' + getFormatType(stream.url) + ']',
                     title: formatTitle(mediaTitle, season, episode, mediaType),
                     url: stream.url,
-                    quality,
-                    headers: {
-                        Referer: API_BASE,
-                        'User-Agent': STREAM_HEADERS['User-Agent'],
-                        ...(stream.signCookie ? { Cookie: stream.signCookie } : {})
-                    }
-                };
-                return fetchStreamCaptions(playSubjectId, streamId, bearer).then(caps => {
+                    quality: quality,
+                    headers: mergePlaybackHeaders(STREAM_HEADERS, API_BASE, stream.signCookie)
+                });
+                return fetchStreamCaptions(playSubjectId, streamId, bearer).then(function (caps) {
                     if (caps.length) entry.subtitles = caps;
                     return entry;
                 });
@@ -737,17 +753,13 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
                                         : [qualityField];
                                     const maxQ = candidates.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
                                     const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
-                                    streams.push({
-                                        name: `MovieBox (Original) ${quality} [${getFormatType(stream.url)}]`,
+                                    streams.push(attachProvider({
+                                        name: 'MovieBox (Original) ' + quality + ' [' + getFormatType(stream.url) + ']',
                                         title: formatTitle(mediaTitle, season, episode, mediaType),
                                         url: stream.url,
-                                        quality,
-                                        headers: {
-                                            "Referer": API_BASE,
-                                            "User-Agent": HEADERS['User-Agent'],
-                                            ...(stream.signCookie ? { "Cookie": stream.signCookie } : {})
-                                        }
-                                    });
+                                        quality: quality,
+                                        headers: mergePlaybackHeaders(HEADERS, API_BASE, stream.signCookie)
+                                    }));
                                 });
                             }
                             return streams;
@@ -769,17 +781,13 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
                                     : [qualityField];
                                 const maxQ = candidates.reduce((m, v) => Math.max(m, parseQualityNumber(v)), 0);
                                 const quality = maxQ ? `${maxQ}p` : formatQualityLabel(candidates[0]);
-                                streams.push({
-                                    name: `MovieBox (Original) ${quality} [${getFormatType(stream.url)}]`,
+                                streams.push(attachProvider({
+                                    name: 'MovieBox (Original) ' + quality + ' [' + getFormatType(stream.url) + ']',
                                     title: formatTitle(mediaTitle, season, episode, mediaType),
                                     url: stream.url,
-                                    quality,
-                                    headers: {
-                                        "Referer": API_BASE,
-                                        "User-Agent": HEADERS['User-Agent'],
-                                        ...(stream.signCookie ? { "Cookie": stream.signCookie } : {})
-                                    }
-                                });
+                                    quality: quality,
+                                    headers: mergePlaybackHeaders(HEADERS, API_BASE, stream.signCookie)
+                                }));
                             });
                         }
                         return streams;
@@ -790,11 +798,20 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
     }
 }
 
-function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
-    return fetchTmdbDetails(tmdbId, mediaType).then(details => {
-        if (!details) return [];
+function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
+    if (seasonNum == null) seasonNum = 1;
+    if (episodeNum == null) episodeNum = 1;
+    console.log('[MovieBox] Fetching streams for TMDB ' + tmdbId + ', type=' + mediaType +
+        (mediaType === 'tv' ? ', S' + seasonNum + 'E' + episodeNum : ''));
 
-        return searchMovieBoxMany(buildSearchTerms(details, mediaType, seasonNum)).then(subjects => {
+    return fetchTmdbDetails(tmdbId, mediaType).then(function (details) {
+        if (!details) {
+            console.log('[MovieBox] TMDB lookup failed');
+            return [];
+        }
+
+        return searchMovieBoxMany(buildSearchTerms(details, mediaType, seasonNum)).then(function (subjects) {
+            console.log('[MovieBox] Search hits: ' + subjects.length);
             if (mediaType === 'tv') {
                 return rankTvSubjects(subjects, details.title, details.year, seasonNum, episodeNum)
                     .then(ranked => {
@@ -813,8 +830,15 @@ function getStreams(tmdbId, mediaType, seasonNum = 1, episodeNum = 1) {
             if (bestMatch) {
                 return getStreamLinks(bestMatch.subjectId, 0, 0, details.title, mediaType);
             }
+            console.log('[MovieBox] No movie match for "' + details.title + '"');
             return [];
+        }).then(function (streams) {
+            console.log('[MovieBox] Returning ' + (streams ? streams.length : 0) + ' stream(s)');
+            return streams || [];
         });
+    }).catch(function (err) {
+        console.log('[MovieBox] Error: ' + (err && err.message ? err.message : String(err)));
+        return [];
     });
 }
 
