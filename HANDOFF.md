@@ -3,7 +3,7 @@
 > **最后更新：2026-06-01**  
 > **仓库：** `https://github.com/cbdoglolz/nuvio-providers-cb`（fork，manifest 名 **cbrepo**）  
 > **分支：** `main`（已与 `origin/main` 同步）  
-> **最新版本：** manifest **1.3.12**，最新 commit **push 后见 origin/main**
+> **最新版本：** manifest **1.3.13**，最新 commit **push 后见 `origin/main`**
 
 ---
 

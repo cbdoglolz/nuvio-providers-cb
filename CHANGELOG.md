@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.13 - 2026-06-01
+
+- **4KHDHub `1.0.14-cb4`**: Fixed zero-stream results when pages only linked `hubcloud.foo` (Cloudflare-blocked for desktop fetch).
+- HubCloud extraction now tries `hubcloud.one` then `hubcloud.foo` with a mobile User-Agent, and only accepts a mirror when download buttons are actually parsed (avoids empty pages from alternate mirrors).
+- **CI**: jsDelivr purge after deploy now includes every file under `providers/*.js` on `@gh-pages`.
+
 ## 1.3.12 - 2026-06-01
 
 - **CNCVerse `1.0.3-cb1`**: Stop using the old `/mobile/.../playlist.php` playback path that still exposed the 10-minute "too many requests" warning video on device.

@@ -47,6 +47,7 @@ var __async = (__this, __arguments, generator) => {
 var BASE_URL = "https://4khdhub.click";
 var TMDB_API_KEY = "439c478a771f35c05022f9feabcca01c";
 var USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+var HUBCLOUD_USER_AGENT = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36";
 var DOMAINS_URL = "https://raw.githubusercontent.com/phisher98/TVVVV/refs/heads/main/domains.json";
 
 // src/4khdhub/utils.js
@@ -220,6 +221,45 @@ function getBaseUrl(url) {
   } catch (e) {
     return "";
   }
+}
+// 4KHDHub pages often link hubcloud.foo, which is CF-blocked for plain fetch.
+// hubcloud.one serves the same /drive/<id> paths without the challenge page.
+var HUBCLOUD_HOSTS = ["hubcloud.one", "hubcloud.foo"];
+function hubCloudUrlCandidates(url) {
+  if (!url || !/hubcloud/i.test(url))
+    return [url];
+  try {
+    const u = new URL(url);
+    const path = `${u.pathname}${u.search}`;
+    const hosts = [];
+    for (const host of HUBCLOUD_HOSTS) {
+      const candidate = `https://${host}${path}`;
+      if (!hosts.includes(candidate))
+        hosts.push(candidate);
+    }
+    return hosts;
+  } catch (e) {
+    return [url];
+  }
+}
+function normalizeHubCloudUrl(url) {
+  const candidates = hubCloudUrlCandidates(url);
+  return candidates.length ? candidates[0] : url;
+}
+function isCloudflareChallengeHtml(html) {
+  return !!html && /just a moment|cf-challenge/i.test(html);
+}
+function hubCloudFetchOptions(referer) {
+  return {
+    headers: {
+      "User-Agent": HUBCLOUD_USER_AGENT,
+      Referer: referer,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
+  };
+}
+function fetchHubCloudPage(url, referer) {
+  return fetchText(url, hubCloudFetchOptions(referer || url));
 }
 function cleanTitle(title) {
   const normalized = String(title || "").replace(/\.[a-zA-Z0-9]{2,4}$/, "").replace(/WEB[-_. ]?DL/gi, "WEB-DL").replace(/WEB[-_. ]?RIP/gi, "WEBRIP").replace(/H[ .]?265/gi, "H265").replace(/H[ .]?264/gi, "H264").replace(/DDP[ .]?([0-9]\.[0-9])/gi, "DDP$1");
@@ -617,7 +657,7 @@ function extractResolvedLink(rawUrl, baseMeta) {
   return __async(this, null, function* () {
     if (!rawUrl)
       return [];
-    let resolved = rawUrl;
+    let resolved = /hubcloud/i.test(rawUrl) ? normalizeHubCloudUrl(rawUrl) : rawUrl;
     if (resolved.includes("id=") && !/\/file\/[A-Za-z0-9]+/.test(resolved)) {
       resolved = yield resolveRedirectUrl(resolved) || resolved;
     }
@@ -672,73 +712,77 @@ function extractHubCloud(hubCloudUrl, baseMeta) {
         return [];
       hubCloudUrl = hubDriveTarget.startsWith("http") ? hubDriveTarget : new URL(hubDriveTarget, hubCloudUrl).toString();
     }
-    const redirectHtml = yield fetchText(hubCloudUrl, { headers: { Referer: hubCloudUrl } });
-    if (!redirectHtml)
-      return [];
-    let finalLinksUrl = null;
-    const $redirect = cheerio2.load(redirectHtml);
-    const downloadHref = $redirect("#download").attr("href");
-    if (downloadHref) {
-      finalLinksUrl = downloadHref.startsWith("http") ? downloadHref : new URL(downloadHref, hubCloudUrl).toString();
-    }
-    if (!finalLinksUrl) {
-      const redirectUrlMatch = redirectHtml.match(/var url ?= ?['"](.*?)['"]/);
-      if (redirectUrlMatch) {
-        finalLinksUrl = redirectUrlMatch[1];
+    for (const candidate of hubCloudUrlCandidates(hubCloudUrl)) {
+      const redirectHtml = yield fetchHubCloudPage(candidate);
+      if (!redirectHtml || isCloudflareChallengeHtml(redirectHtml))
+        continue;
+      let finalLinksUrl = null;
+      const $redirect = cheerio2.load(redirectHtml);
+      const downloadHref = $redirect("#download").attr("href");
+      if (downloadHref) {
+        finalLinksUrl = downloadHref.startsWith("http") ? downloadHref : new URL(downloadHref, candidate).toString();
       }
-    }
-    const linksHtml = finalLinksUrl ? yield fetchText(finalLinksUrl, { headers: { Referer: hubCloudUrl } }) : redirectHtml;
-    if (!linksHtml)
-      return [];
-    const $ = cheerio2.load(linksHtml);
-    const results = [];
-    const sizeText = $("#size, i#size").first().text();
-    const titleText = $("div.card-header").first().text().trim() || $("title").text().trim();
-    const currentMeta = __spreadProps(__spreadValues({}, baseMeta), {
-      bytes: parseBytes(sizeText) || baseMeta.bytes,
-      title: cleanTitle(titleText) || titleText || baseMeta.title
-    });
-    $("a.btn, a").each((_, el) => {
-      const text = $(el).text();
-      const href = $(el).attr("href");
-      if (!href)
-        return;
-      const label = text.toLowerCase();
-      if (label.includes("fsl") || label.includes("download file") || label.includes("s3 server") || label.includes("fslv2") || label.includes("mega server") || label.includes("pdl server") || label.includes("pdl")) {
-        results.push({
-          source: text.trim() || "Direct",
-          url: href,
-          meta: currentMeta
-        });
-      } else if (label.includes("buzzserver")) {
-        results.push({
-          source: "BuzzServer",
-          url: href.endsWith("/download") ? href : `${href.replace(/\/$/, "")}/download`,
-          meta: currentMeta
-        });
-      } else if (href.toLowerCase().includes("hubcdn")) {
-        results.push({
-          source: "HUBCDN",
-          url: href,
-          meta: currentMeta
-        });
-      } else if (label.includes("pixelserver") || label.includes("pixel server") || label.includes("pixeldrain") || label.includes("pixeldra")) {
-        const pixelUrl = href.includes("?download") ? href : href.replace("/u/", "/api/file/").replace(/\/file\/([^/?#]+).*$/, "/api/file/$1?download");
-        results.push({
-          source: "Pixeldrain",
-          url: pixelUrl,
-          meta: currentMeta
-        });
+      if (!finalLinksUrl) {
+        const redirectUrlMatch = redirectHtml.match(/var url ?= ?['"](.*?)['"]/);
+        if (redirectUrlMatch)
+          finalLinksUrl = redirectUrlMatch[1];
       }
-    });
-    const resolved = yield Promise.all(results.map((r) => __async(this, null, function* () {
-      const src = String(r.source || "").toLowerCase();
-      if (src.includes("buzzserver") || src.includes("hubcdn"))
-        return r;
-      const finalUrl = yield resolveFinalLink(r.url);
-      return __spreadProps(__spreadValues({}, r), { url: finalUrl });
-    })));
-    return resolved;
+      const linksHtml = finalLinksUrl ? yield fetchHubCloudPage(finalLinksUrl, candidate) : redirectHtml;
+      if (!linksHtml || isCloudflareChallengeHtml(linksHtml))
+        continue;
+      const $ = cheerio2.load(linksHtml);
+      const results = [];
+      const sizeText = $("#size, i#size").first().text();
+      const titleText = $("div.card-header").first().text().trim() || $("title").text().trim();
+      const currentMeta = __spreadProps(__spreadValues({}, baseMeta), {
+        bytes: parseBytes(sizeText) || baseMeta.bytes,
+        title: cleanTitle(titleText) || titleText || baseMeta.title
+      });
+      $("a.btn, a").each((_, el) => {
+        const text = $(el).text();
+        const href = $(el).attr("href");
+        if (!href)
+          return;
+        const label = text.toLowerCase();
+        if (label.includes("fsl") || label.includes("download file") || label.includes("s3 server") || label.includes("fslv2") || label.includes("mega server") || label.includes("pdl server") || label.includes("pdl")) {
+          results.push({
+            source: text.trim() || "Direct",
+            url: href,
+            meta: currentMeta
+          });
+        } else if (label.includes("buzzserver")) {
+          results.push({
+            source: "BuzzServer",
+            url: href.endsWith("/download") ? href : `${href.replace(/\/$/, "")}/download`,
+            meta: currentMeta
+          });
+        } else if (href.toLowerCase().includes("hubcdn")) {
+          results.push({
+            source: "HUBCDN",
+            url: href,
+            meta: currentMeta
+          });
+        } else if (label.includes("pixelserver") || label.includes("pixel server") || label.includes("pixeldrain") || label.includes("pixeldra")) {
+          const pixelUrl = href.includes("?download") ? href : href.replace("/u/", "/api/file/").replace(/\/file\/([^/?#]+).*$/, "/api/file/$1?download");
+          results.push({
+            source: "Pixeldrain",
+            url: pixelUrl,
+            meta: currentMeta
+          });
+        }
+      });
+      if (!results.length)
+        continue;
+      return yield Promise.all(results.map((r) => __async(this, null, function* () {
+        const src = String(r.source || "").toLowerCase();
+        if (src.includes("buzzserver") || src.includes("hubcdn"))
+          return r;
+        const finalUrl = yield resolveFinalLink(r.url);
+        return __spreadProps(__spreadValues({}, r), { url: finalUrl });
+      })));
+    }
+    console.log(`[4KHDHub] HubCloud: no download buttons from any mirror for ${hubCloudUrl}`);
+    return [];
   });
 }
 function toNuvioStream(link, sourceMeta) {
@@ -771,7 +815,7 @@ function toNuvioStream(link, sourceMeta) {
 // src/4khdhub/index.js
 var cheerio3 = require("cheerio-without-node-native");
 var MAX_ITEMS = 5;
-var ITEM_CONCURRENCY = 2;
+var ITEM_CONCURRENCY = 1;
 var MAX_RAW_LINKS = 2;
 function mapPool(items, limit, fn) {
   return new Promise(function(resolve) {
