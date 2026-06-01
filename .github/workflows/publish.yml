@@ -68,7 +68,13 @@ jobs:
       - name: Purge jsDelivr @gh-pages cache
         run: |
           set -e
-          for path in manifest.json subscribe.json VERSION.txt providers/moviebox.js providers/cncverse.js providers/4khdhub.js providers/hdhub4u.js providers/vixsrc.js; do
+          paths="manifest.json subscribe.json VERSION.txt"
+          for f in _site/providers/*.js; do
+            paths="$paths providers/$(basename "$f")"
+          done
+          for path in $paths; do
             code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/${path}")
             echo "purge gh-pages ${path}: HTTP ${code}"
           done
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages")
+          echo "purge gh-pages root: HTTP ${code}"
