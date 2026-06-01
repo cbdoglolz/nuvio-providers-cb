@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.9 - 2026-06-01
+
+- **CNCVerse `1.0.0-cb1`**: Added a focused CNC Verse / NetflixMirror port as its own provider. It uses the NetMirror mobile endpoints (`search/post/episodes/playlist`), tries Netflix first, then Prime Video / Hotstar / Disney, and carries subtitle tracks through to Nuvio.
+- **MovieBox `1.1.8-cb9`**: Kept the CNC MovieBoxProvider `api3.aoneroom.com` flow but improved caption mapping so Chinese / zh / Chinese-labeled captions are marked and sorted first.
+- Subscription URL remains `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`; do not use raw `main` for Nuvio installs.
+
 ## 1.3.8 - 2026-06-01
 
 - **All providers (deploy)**: Harden the Nuvio patch wrapper for cbrepo-wide empty results. It now accepts object-style Nuvio media arguments, remembers passed title/year metadata, and installs a TMDB metadata fallback for known test titles.

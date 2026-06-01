@@ -325,9 +325,15 @@ function fetchStreamCaptions(subjectId, streamId, bearer) {
         const ext = res && res.data && res.data.extCaptions;
         if (!Array.isArray(ext)) return [];
         return ext.map(cap => ({
-            language: cap.language || cap.lanName || cap.lan || 'unknown',
-            url: cap.url
-        })).filter(s => s.url);
+            language: cap.language || cap.lanName || cap.lan || cap.name || 'unknown',
+            label: cap.lanName || cap.language || cap.lan || cap.name || 'Subtitle',
+            url: cap.url,
+            default: /zh|chi|chinese|中文|简|繁/i.test(`${cap.language || ''} ${cap.lanName || ''} ${cap.lan || ''} ${cap.name || ''}`)
+        })).filter(s => s.url).sort((a, b) => {
+            if (a.default && !b.default) return -1;
+            if (!a.default && b.default) return 1;
+            return 0;
+        });
     });
 }
 
