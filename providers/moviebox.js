@@ -16,12 +16,76 @@ const HEADERS = {
     'x-client-status': '0'
 };
 
+function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+}
+
 function randomDeviceId() {
     let out = '';
     for (let i = 0; i < 16; i++) {
-        out += Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+        out += pad2(Math.floor(Math.random() * 256));
     }
     return out;
+}
+
+function parseUrlPathQuery(url) {
+    const s = String(url || '');
+    let path = '';
+    let query = '';
+    const schemeIdx = s.indexOf('://');
+    const start = schemeIdx >= 0 ? s.indexOf('/', schemeIdx + 3) : 0;
+    if (start < 0) return { path: '', query: '' };
+    const rest = s.substring(start);
+    const qIdx = rest.indexOf('?');
+    if (qIdx >= 0) {
+        path = rest.substring(0, qIdx);
+        query = rest.substring(qIdx + 1);
+    } else {
+        path = rest;
+    }
+    if (!query) return { path: path, query: '' };
+    const parts = query.split('&');
+    const keys = {};
+    for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        const eq = p.indexOf('=');
+        const key = eq >= 0 ? p.substring(0, eq) : p;
+        const val = eq >= 0 ? p.substring(eq + 1) : '';
+        if (!keys[key]) keys[key] = [];
+        keys[key].push(val);
+    }
+    const keyNames = Object.keys(keys).sort();
+    const pairs = [];
+    for (let j = 0; j < keyNames.length; j++) {
+        const k = keyNames[j];
+        const vals = keys[k];
+        for (let v = 0; v < vals.length; v++) {
+            pairs.push(k + '=' + vals[v]);
+        }
+    }
+    return { path: path, query: pairs.join('&') };
+}
+
+function getResponseHeader(headers, name) {
+    if (!headers) return null;
+    if (typeof headers.get === 'function') {
+        var v = headers.get(name);
+        if (v) return v;
+        v = headers.get(name.toLowerCase());
+        if (v) return v;
+    }
+    if (headers[name]) return headers[name];
+    var lower = name.toLowerCase();
+    if (headers[lower]) return headers[lower];
+    return null;
+}
+
+function escapeJsonString(s) {
+    return String(s || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r');
 }
 
 const STREAM_DEVICE_ID = randomDeviceId();
@@ -73,6 +137,7 @@ function mergePlaybackHeaders(base, referer, signCookie) {
 
 function attachProvider(stream) {
     stream.provider = 'moviebox';
+    stream.type = 'direct';
     return stream;
 }
 
@@ -113,23 +178,9 @@ function buildCanonicalString(method, accept, contentType, url, body, timestamp)
     let path = "";
     let query = "";
 
-    try {
-        // Handle both full URLs and paths (though we mostly use full URLs here)
-        // Note: For React Native/Hermes compatibility, simple string splitting for path/query is safer if URL is not fully supported
-        // But contemporary RN supports URL.
-        const urlObj = new URL(url);
-        path = urlObj.pathname;
-        const params = Array.from(urlObj.searchParams.keys()).sort();
-        if (params.length > 0) {
-            query = params.map(key => {
-                const values = urlObj.searchParams.getAll(key);
-                return values.map(val => `${key}=${val}`).join('&');
-            }).join('&');
-        }
-    } catch (e) {
-        // Fallback for relative paths or invalid URL construction
-        console.error("Invalid URL for canonical:", url);
-    }
+    const parsed = parseUrlPathQuery(url);
+    path = parsed.path;
+    query = parsed.query;
 
     const canonicalUrl = query ? `${path}?${query}` : path;
 
@@ -168,7 +219,10 @@ function generateXTrSignature(method, accept, contentType, url, body, useAltKey 
     return `${timestamp}|2|${signatureB64}`;
 }
 
-function request(method, url, body = null, customHeaders = {}, opts = {}) {
+function request(method, url, body, customHeaders, opts) {
+    if (body === undefined) body = null;
+    if (customHeaders === undefined) customHeaders = {};
+    if (opts === undefined) opts = {};
     const timestamp = Date.now();
     const xClientToken = generateXClientToken(timestamp);
     const useStream = !!opts.stream;
@@ -228,23 +282,40 @@ function request(method, url, body = null, customHeaders = {}, opts = {}) {
                 }
             });
         })
-        .catch(err => {
+        .catch(function (err) {
+            console.log('[MovieBox] HTTP error: ' + (err && err.message ? err.message : String(err)));
             return null;
         });
 }
 
-function fetchStreamBearer(subjectId) {
-    const url = `${API_BASE}/wefeed-mobile-bff/subject-api/get?subjectId=${subjectId}`;
-    return request('GET', url, null, {}, { stream: true, raw: true }).then(res => {
-        if (!res || !res.ok || !res.headers) return null;
-        const xUser = res.headers.get('x-user');
-        if (!xUser) return null;
-        try {
-            const parsed = JSON.parse(xUser);
-            return parsed.token || null;
-        } catch (e) {
-            return null;
+function parseBearerFromHeaders(headers) {
+    const xUser = getResponseHeader(headers, 'x-user');
+    if (!xUser) return null;
+    try {
+        const parsed = JSON.parse(xUser);
+        return parsed.token || null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function fetchSubjectWithBearer(subjectId) {
+    const url = API_BASE + '/wefeed-mobile-bff/subject-api/get?subjectId=' + subjectId;
+    return request('GET', url, null, {}, { stream: true, raw: true }).then(function (res) {
+        if (!res || !res.ok) {
+            console.log('[MovieBox] subject get failed for ' + subjectId);
+            return { bearer: null, data: null };
         }
+        return {
+            bearer: parseBearerFromHeaders(res.headers),
+            data: res.data || null
+        };
+    });
+}
+
+function fetchStreamBearer(subjectId) {
+    return fetchSubjectWithBearer(subjectId).then(function (ctx) {
+        return ctx.bearer || null;
     });
 }
 
@@ -260,19 +331,57 @@ function fetchStreamCaptions(subjectId, streamId, bearer) {
     });
 }
 
-// TMDB Helper
+function mapTmdbData(data, mediaType) {
+    if (!data || data.success === false) return null;
+    return {
+        title: mediaType === 'movie' ? (data.title || data.original_title) : (data.name || data.original_name),
+        year: (data.release_date || data.first_air_date || '').substring(0, 4),
+        imdbId: data.external_ids && data.external_ids.imdb_id,
+        originalTitle: data.original_title || data.original_name,
+        originalName: data.original_name
+    };
+}
+
 function fetchTmdbDetails(tmdbId, mediaType) {
-    const url = `${TMDB_BASE_URL}/${mediaType}/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=external_ids`;
+    const url = TMDB_BASE_URL + '/' + mediaType + '/' + tmdbId +
+        '?api_key=' + TMDB_API_KEY + '&language=en-US&append_to_response=external_ids';
     return fetch(url)
-        .then(res => res.json())
-        .then(data => ({
-            title: mediaType === 'movie' ? (data.title || data.original_title) : (data.name || data.original_name),
-            year: (data.release_date || data.first_air_date || '').substring(0, 4),
-            imdbId: data.external_ids && data.external_ids.imdb_id,
-            originalTitle: data.original_title || data.original_name,
-            originalName: data.original_name
-        }))
-        .catch(e => null);
+        .then(function (res) {
+            if (!res.ok) return null;
+            return res.json();
+        })
+        .then(function (data) { return mapTmdbData(data, mediaType); })
+        .catch(function () { return null; });
+}
+
+function fetchCinemetaDetails(tmdbId, mediaType) {
+    const kind = mediaType === 'tv' ? 'series' : 'movie';
+    const url = 'https://v3-cinemeta.strem.io/meta/' + kind + '/tmdb:' + tmdbId + '.json';
+    return fetch(url)
+        .then(function (res) {
+            if (!res.ok) return null;
+            return res.json();
+        })
+        .then(function (data) {
+            if (!data || !data.meta) return null;
+            const m = data.meta;
+            return {
+                title: m.name || m.title,
+                year: String(m.year || ''),
+                imdbId: m.imdb_id,
+                originalTitle: m.name || m.title,
+                originalName: m.name || m.title
+            };
+        })
+        .catch(function () { return null; });
+}
+
+function fetchMetadataDetails(tmdbId, mediaType) {
+    return fetchTmdbDetails(tmdbId, mediaType).then(function (details) {
+        if (details && details.title) return details;
+        console.log('[MovieBox] TMDB failed, trying Cinemeta fallback');
+        return fetchCinemetaDetails(tmdbId, mediaType);
+    });
 }
 
 function normalizeTitle(s) {
@@ -316,11 +425,10 @@ function buildSearchTerms(details, mediaType, seasonNum) {
 }
 
 function searchMovieBox(query) {
-    const url = `${API_BASE}/wefeed-mobile-bff/subject-api/search/v2`;
-    // Strict formatting
-    const body = `{"page": 1, "perPage": 10, "keyword": "${query}"}`;
+    const url = API_BASE + '/wefeed-mobile-bff/subject-api/search/v2';
+    const body = JSON.stringify({ page: 1, perPage: 12, keyword: String(query || '') });
 
-    return request('POST', url, body).then(res => {
+    return request('POST', url, body).then(function (res) {
         if (res && res.data && res.data.results) {
             let allSubjects = [];
             res.data.results.forEach(group => {
@@ -335,26 +443,32 @@ function searchMovieBox(query) {
 }
 
 function searchMovieBoxMany(queries) {
-    const out = [];
-    const seenSubjects = {};
+    const terms = [];
     const seenQueries = {};
-    let chain = Promise.resolve();
-
-    queries.forEach(query => {
+    (queries || []).forEach(function (query) {
         const q = String(query || '').trim();
         if (!q || seenQueries[q.toLowerCase()]) return;
         seenQueries[q.toLowerCase()] = true;
-        chain = chain.then(() => searchMovieBox(q).then(subjects => {
-            subjects.forEach(subject => {
-                const key = subject.subjectId || subject.id || `${subject.title}-${subject.year}`;
+        terms.push(q);
+    });
+    const useTerms = terms.slice(0, 4);
+    if (!useTerms.length) return Promise.resolve([]);
+
+    return Promise.all(useTerms.map(function (q) {
+        return searchMovieBox(q).catch(function () { return []; });
+    })).then(function (results) {
+        const out = [];
+        const seenSubjects = {};
+        results.forEach(function (subjects) {
+            subjects.forEach(function (subject) {
+                const key = subject.subjectId || subject.id || (subject.title + '-' + subject.year);
                 if (!key || seenSubjects[key]) return;
                 seenSubjects[key] = true;
                 out.push(subject);
             });
-        }).catch(() => null));
+        });
+        return out;
     });
-
-    return chain.then(() => out);
 }
 
 function fetchSeasonInfo(subjectId) {
@@ -406,32 +520,24 @@ function scoreSubject(subject, tmdbTitle, tmdbYear, mediaType, seasonNum) {
 
 function rankTvSubjects(subjects, tmdbTitle, tmdbYear, seasonNum, episodeNum) {
     const scored = [];
-    subjects.forEach(subject => {
+    subjects.forEach(function (subject) {
         const titleScore = scoreSubject(subject, tmdbTitle, tmdbYear, 'tv', seasonNum);
         if (titleScore < 15) return;
-        scored.push({ subject, titleScore });
+        scored.push({ subject: subject, titleScore: titleScore });
     });
-    scored.sort((a, b) => b.titleScore - a.titleScore);
+    scored.sort(function (a, b) { return b.titleScore - a.titleScore; });
+    const top = scored.slice(0, 4);
 
-    let chain = Promise.resolve([]);
-    scored.forEach(item => {
-        chain = chain.then(list => {
-            if (list.length >= 6) return list;
-            const sid = item.subject.subjectId || item.subject.id;
-            if (!sid) return list;
-            return fetchSeasonInfo(sid).then(seasons => {
-                if (!subjectSupportsEpisode(seasons, seasonNum, episodeNum)) return list;
-                const seasonCount = seasons.length;
-                list.push({
-                    subject: item.subject,
-                    titleScore: item.titleScore + Math.min(seasonCount, 4) * 3
-                });
-                list.sort((a, b) => b.titleScore - a.titleScore);
-                return list;
-            });
+    return Promise.all(top.map(function (item) {
+        const sid = item.subject.subjectId || item.subject.id;
+        if (!sid) return Promise.resolve(null);
+        return fetchSeasonInfo(sid).then(function (seasons) {
+            if (!subjectSupportsEpisode(seasons, seasonNum, episodeNum)) return null;
+            return item.subject;
         });
+    })).then(function (list) {
+        return list.filter(function (x) { return !!x; });
     });
-    return chain.then(list => list.map(x => x.subject));
 }
 
 function findBestMatch(subjects, tmdbTitle, tmdbYear, mediaType, seasonNum) {
@@ -477,8 +583,6 @@ function findBestMatch(subjects, tmdbTitle, tmdbYear, mediaType, seasonNum) {
 }
 
 function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', mediaType = 'movie') {
-    const subjectUrl = `${API_BASE}/wefeed-mobile-bff/subject-api/get?subjectId=${subjectId}`;
-
     function parseQualityNumber(value) {
         const match = String(value || '').match(/(\d{3,4})/);
         return match ? parseInt(match[1], 10) : 0;
@@ -511,7 +615,9 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
 
     function formatTitle(title, season, episode, mediaType) {
         if (mediaType === 'tv' && season > 0 && episode > 0) {
-            return `${title} S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}`;
+            const ss = season < 10 ? '0' + season : String(season);
+            const ee = episode < 10 ? '0' + episode : String(episode);
+            return title + ' S' + ss + 'E' + ee;
         }
         return title || 'Stream';
     }
@@ -595,9 +701,10 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
         return out;
     }
 
-    function streamsFromPlayInfo(playSubjectId, lang, bearer) {
-        const playUrl = `${API_BASE}/wefeed-mobile-bff/subject-api/play-info?subjectId=${playSubjectId}&se=${season}&ep=${episode}`;
-        return request('GET', playUrl, null, {}, { stream: true, bearer: bearer }).then(playRes => {
+    function streamsFromPlayInfo(playSubjectId, lang, bearer, playSe, playEp) {
+        const playUrl = API_BASE + '/wefeed-mobile-bff/subject-api/play-info?subjectId=' + playSubjectId +
+            '&se=' + playSe + '&ep=' + playEp;
+        return request('GET', playUrl, null, {}, { stream: true, bearer: bearer }).then(function (playRes) {
             const streams = [];
             const n = playRes && playRes.data && playRes.data.streams ? playRes.data.streams.length : 0;
             if (!playRes || !playRes.data || !Array.isArray(playRes.data.streams)) {
@@ -630,21 +737,28 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
         });
     }
 
-    function loadTvStreamsViaPlayInfo(mainData, subjectId) {
-        return fetchStreamBearer(subjectId).then(bearer => {
-            if (!bearer) return [];
-            const variants = [{ id: subjectId, lang: 'Original' }];
-            const dubs = mainData && mainData.dubs;
-            if (Array.isArray(dubs)) {
-                dubs.forEach(dub => {
-                    if (dub.subjectId && dub.subjectId != subjectId) {
-                        variants.push({ id: dub.subjectId, lang: dub.lanName || 'Dub' });
-                    }
-                });
-            }
-            return Promise.all(
-                variants.slice(0, 8).map(v => streamsFromPlayInfo(v.id, v.lang, bearer))
-            ).then(chunks => chunks.reduce((a, b) => a.concat(b), []));
+    function loadStreamsViaPlayInfo(rootId, mainData, bearer) {
+        if (!bearer) {
+            console.log('[MovieBox] No play bearer token (x-user header missing)');
+            return Promise.resolve([]);
+        }
+        const variants = [{ id: rootId, lang: 'Original' }];
+        const dubs = mainData && mainData.dubs;
+        if (Array.isArray(dubs)) {
+            dubs.forEach(function (dub) {
+                if (dub.subjectId && dub.subjectId != rootId) {
+                    variants.push({ id: dub.subjectId, lang: dub.lanName || 'Dub' });
+                }
+            });
+        }
+        const playSe = isTv ? season : 0;
+        const playEp = isTv ? episode : 0;
+        return Promise.all(
+            variants.slice(0, 6).map(function (v) {
+                return streamsFromPlayInfo(v.id, v.lang, bearer, playSe, playEp);
+            })
+        ).then(function (chunks) {
+            return chunks.reduce(function (a, b) { return a.concat(b); }, []);
         });
     }
 
@@ -678,45 +792,45 @@ function getStreamLinks(subjectId, season = 0, episode = 0, mediaTitle = '', med
         return Promise.all(tasks).then(chunks => chunks.reduce((a, b) => a.concat(b), []));
     }
 
-    return request('GET', subjectUrl).then(subjectRes => {
-        if (!subjectRes || !subjectRes.data) return [];
-        const mainData = subjectRes.data;
+    return fetchSubjectWithBearer(subjectId).then(function (ctx) {
+        const mainData = ctx.data;
+        const bearer = ctx.bearer;
+        if (!mainData) {
+            console.log('[MovieBox] subject get returned no data');
+            return [];
+        }
 
-        // Build language variant list from dubs (cap to keep request count sane).
         const variants = [];
         const dubs = mainData.dubs;
         if (Array.isArray(dubs)) {
-            dubs.forEach(dub => {
+            dubs.forEach(function (dub) {
                 if (dub.subjectId && dub.subjectId != subjectId) {
                     variants.push({ id: dub.subjectId, lang: dub.lanName || 'Dub' });
                 }
             });
         }
-        const cappedVariants = variants.slice(0, 8);
+        const cappedVariants = variants.slice(0, 6);
 
-        // Main subject: for movies we already have data; for TV re-fetch with se/ep
-        // so resourceDetectors point at the requested episode.
-        const mainPromise = isTv ? getSubjectData(subjectId) : Promise.resolve(mainData);
-
-        return mainPromise.then(mainEpData => {
-            if (isTv) {
-                return loadTvStreamsViaPlayInfo(mainData, subjectId).then(playStreams => {
-                    if (playStreams.length > 0) {
-                        playStreams.sort((a, b) => {
-                            const qa = parseQualityNumber(a.quality);
-                            const qb = parseQualityNumber(b.quality);
-                            if (qb !== qa) return qb - qa;
-                            return urlTypeRank(b.url) - urlTypeRank(a.url);
-                        });
-                        return playStreams;
-                    }
-                    return collectLegacyTvStreams(mainEpData, mainData, cappedVariants);
+        return loadStreamsViaPlayInfo(subjectId, mainData, bearer).then(function (playStreams) {
+            if (playStreams.length > 0) {
+                console.log('[MovieBox] play-info streams: ' + playStreams.length);
+                playStreams.sort(function (a, b) {
+                    const qa = parseQualityNumber(a.quality);
+                    const qb = parseQualityNumber(b.quality);
+                    if (qb !== qa) return qb - qa;
+                    return urlTypeRank(b.url) - urlTypeRank(a.url);
                 });
+                return playStreams;
             }
-            return collectLegacyTvStreams(mainEpData, mainData, cappedVariants);
-        }).then(flat => {
+
+            const mainPromise = isTv ? getSubjectData(subjectId) : Promise.resolve(mainData);
+            return mainPromise.then(function (mainEpData) {
+                console.log('[MovieBox] play-info empty, legacy fallback');
+                return collectLegacyTvStreams(mainEpData, mainData, cappedVariants);
+            });
+        }).then(function (flat) {
             if (!Array.isArray(flat)) return flat;
-            flat.sort((a, b) => {
+            flat.sort(function (a, b) {
                 const qa = parseQualityNumber(a.quality);
                 const qb = parseQualityNumber(b.quality);
                 if (qb !== qa) return qb - qa;
@@ -804,14 +918,18 @@ function getStreams(tmdbId, mediaType, seasonNum, episodeNum) {
     console.log('[MovieBox] Fetching streams for TMDB ' + tmdbId + ', type=' + mediaType +
         (mediaType === 'tv' ? ', S' + seasonNum + 'E' + episodeNum : ''));
 
-    return fetchTmdbDetails(tmdbId, mediaType).then(function (details) {
-        if (!details) {
-            console.log('[MovieBox] TMDB lookup failed');
+    return fetchMetadataDetails(tmdbId, mediaType).then(function (details) {
+        if (!details || !details.title) {
+            console.log('[MovieBox] Metadata lookup failed for TMDB ' + tmdbId);
             return [];
         }
+        console.log('[MovieBox] Metadata title: "' + details.title + '" (' + (details.year || '?') + ')');
 
         return searchMovieBoxMany(buildSearchTerms(details, mediaType, seasonNum)).then(function (subjects) {
             console.log('[MovieBox] Search hits: ' + subjects.length);
+            if (!subjects.length) {
+                console.log('[MovieBox] API search returned 0 subjects');
+            }
             if (mediaType === 'tv') {
                 return rankTvSubjects(subjects, details.title, details.year, seasonNum, episodeNum)
                     .then(ranked => {
