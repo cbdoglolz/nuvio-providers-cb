@@ -102,3 +102,23 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 - After pushing, verify:
   - `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json` shows `"version": "1.3.10"`.
   - `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/cncverse.js` contains `__CB_REPO_NUVIO_PATCHED__`.
+
+### 1.3.10 - remote gh-pages confirmed, CDN/Nuvio cache still stale
+
+- User pushed `main`, then fetched `origin/gh-pages`.
+- Local verification after the fetch:
+  - `git show origin/gh-pages:manifest.json | ConvertFrom-Json | Select-Object -ExpandProperty version` returned `1.3.10`.
+  - `git show origin/gh-pages:VERSION.txt` returned `1.3.10` and `e53845d`.
+  - `origin/gh-pages` was `e906661 deploy: e53845d6f66f368ff3a60a8aadfa107e4cc3a6e7`.
+- Conclusion: GitHub `gh-pages` is updated correctly. If phone still shows `1.3.8`, the stale layer is jsDelivr CDN cache or Nuvio local/plugin cache, not the Git branch.
+- Codex attempted to purge jsDelivr from this sandbox:
+  - `manifest.json`
+  - `subscribe.json`
+  - `VERSION.txt`
+  - `providers/cncverse.js`
+  - `providers/moviebox.js`
+- All purge attempts failed with `Unable to connect to remote server`, same sandbox network issue as `git push`.
+- Next operator action from a normal network:
+  - Open or POST `https://purge.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`
+  - Also purge `subscribe.json`, `VERSION.txt`, `providers/cncverse.js`, and `providers/moviebox.js`.
+  - Then verify with `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json?v=1310`.
