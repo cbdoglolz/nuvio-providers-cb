@@ -1,5 +1,9 @@
 # Nuvio 插件版本刷不出来 — 原因与一劳永逸的订阅地址
 
+> 2026-06-01 更新：当前 cbrepo 版本为 **1.3.8**。订阅 URL 仍只推荐：
+> `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`
+> 1.3.8 在 gh-pages provider patch 层加入了 Fight Club / Sherlock 的 IMDb→TMDB 与元数据兜底，并递增所有 scraper 版本，确保 Nuvio 会重新下载 JS。
+
 ## 结论（请先读）
 
 **代码已经 push 到 GitHub，`main` 上就是最新版。**  

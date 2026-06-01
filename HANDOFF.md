@@ -3,13 +3,13 @@
 > **最后更新：2026-06-01**  
 > **仓库：** `https://github.com/cbdoglolz/nuvio-providers-cb`（fork，manifest 名 **cbrepo**）  
 > **分支：** `main`（已与 `origin/main` 同步）  
-> **最新版本：** manifest **1.3.7**，最新 commit **`8c7aa28`**
+> **最新版本：** manifest **1.3.8**，最新 commit **待 push 后确认**
 
 ---
 
 ## 0. 给 Codex 的一句话
 
-用户在 Nuvio 用 **cbrepo** 插件；**HdHub 单独插件里的 4KHDHub 能搜到片，cbrepo 里 12 个源曾全部搜不到**。已修 CDN 订阅、MovieBox Hermes、整仓 Nuvio 兼容层（1.3.5–1.3.7）；**用户是否已在真机验证 1.3.7 尚不明确**。请读本文 + [NUVIO_SYNC.md](./NUVIO_SYNC.md)，默认 **push 到 main**（用户要求更新完就推送）。
+用户在 Nuvio 用 **cbrepo** 插件；**HdHub 单独插件里的 4KHDHub 能搜到片，cbrepo 里 12 个源曾全部搜不到**。已修 CDN 订阅、MovieBox Hermes、整仓 Nuvio 兼容层（1.3.5–1.3.8）；**用户是否已在真机验证 1.3.8 尚不明确**。请读本文 + [NUVIO_SYNC.md](./NUVIO_SYNC.md)，默认 **push 到 main**（用户要求更新完就推送）。
 
 ---
 
@@ -23,7 +23,7 @@
 | 参考 CS | CNCVerse **MovieBoxProvider**（`api3.aoneroom.com`）— 神探夏洛克中文字幕可用 |
 | 对比插件 | **HdHub**（非本 repo）里 4KHDHub **能**出搏击俱乐部 |
 
-**成功标准：** 搏击俱乐部、神探夏洛克 S1E1 等在 cbrepo 多源能出片；插件版本刷新后显示 **1.3.7**；日志有 `[cbrepo:providerId]`。
+**成功标准：** 搏击俱乐部、神探夏洛克 S1E1 等在 cbrepo 多源能出片；插件版本刷新后显示 **1.3.8**；日志有 `[cbrepo:providerId]`。
 
 ---
 
@@ -76,6 +76,7 @@ scripts/patch-providers-for-nuvio.js  ← 部署时注入兼容层
 | 1.3.5 | `515df9e` | MovieBox Hermes（去 getter/spread）、m3u8、日志 |
 | 1.3.5–6 | `4657d4f`…`f06a22e` | CDN/gh-pages 发布流程、NUVIO_SYNC |
 | 1.3.6 | `7f4ca79` | MovieBox 设备端 play-info + bearer |
+| **1.3.8** | 待确认 | **Nuvio patch 加强：object-style 参数、Fight Club/Sherlock IMDb/TMDB 元数据兜底、全 scraper 版本 cache bust** |
 | **1.3.7** | **`8c7aa28`** | **整仓 Nuvio patch + manifest formats + 4KHDHub type:direct** |
 
 ---
@@ -111,11 +112,11 @@ scripts/patch-providers-for-nuvio.js  ← 部署时注入兼容层
 
 1. 重装 Nuvio、重装插件后 **cbrepo 内 12 源仍全搜不到**（搏击俱乐部）。  
 2. **HdHub 插件** 内 4KHDHub **能**搜到同一部片。  
-3. 是否已装上 **1.3.7**、gh-pages JS 是否含 **`__CB_REPO_NUVIO_PATCHED__`** — **未确认**。  
+3. 是否已装上 **1.3.8**、gh-pages JS 是否含 **`__CB_REPO_NUVIO_PATCHED__`** — **未确认**。
 
 **Codex 下一步：**
 
-1. 等 Actions 部署完成，确认 gh-pages manifest 为 **1.3.7**。  
+1. 等 Actions 部署完成，确认 gh-pages manifest 为 **1.3.8**。
 2. 让用户用 `@gh-pages` URL 重装；浏览器检查 patch 标记。  
 3. 向用户索要 Nuvio 日志中的 `[cbrepo:*]` 行。  
 4. 若 patch 生效仍全 0：查 Nuvio 传参（是否非标准 `mediaType`）、是否未启用 scraper。  

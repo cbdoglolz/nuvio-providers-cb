@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.8 - 2026-06-01
+
+- **All providers (deploy)**: Harden the Nuvio patch wrapper for cbrepo-wide empty results. It now accepts object-style Nuvio media arguments, remembers passed title/year metadata, and installs a TMDB metadata fallback for known test titles.
+- **IMDb fallback**: Built in `tt0137523` -> TMDB movie `550` (*Fight Club*) and `tt1475582` -> TMDB TV `19885` (*Sherlock*) so device/local tests do not immediately return 0 when TMDB `find` is blocked.
+- **Cache bust**: Bumped every enabled scraper version so Nuvio re-downloads provider JS after the gh-pages patch changes.
+
 ## 1.3.7 - 2026-06-01
 
 - **All providers (deploy)**: Nuvio device compat wrapper on gh-pages build — normalize `movie`/`tv`/`series`, resolve `tt…` IMDb ids via Cinemeta, ensure `global.getStreams`, log `[cbrepo:providerId]` stream counts.
