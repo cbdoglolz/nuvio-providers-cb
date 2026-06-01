@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.4 - 2026-05-31
+
+- **MovieBox `1.1.4-cb4`**: Align with CNCVerse MovieBoxProvider — API host `api3.aoneroom.com`, TV playback via `play-info` + `oneroom` client + session bearer (fixes 0 streams for series e.g. Sherlock); rank TV candidates with `season-info`; attach caption tracks from `get-stream-captions` (incl. 中文 when available).
+
 ## 1.3.3 - 2026-05-31
 
 - **4KHDHub `1.0.12-cb1`**: Stricter TV SxxExx matching (fixes wrong episode e.g. S04E01 when requesting S01E01); season in search query; show filename in source name.
