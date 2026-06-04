@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.16 - 2026-06-04
+
+- **CineStream** (`providers/cinestream.js`): Nuvio port of API backends from [cbdoglolz/CSX CineStream](https://github.com/cbdoglolz/CSX/tree/master/CineStream) — parallel Vidflix (madplay), Playsrc, Hexa (enc-dec), Xpass, Videasy (cdn/moviebox/primesrcme). Does not replace the full CS meta plugin (50+ scrapers); use existing cbrepo sources for MoviesMod, 4KHDHub, HDHub4u, etc.
+
 ## 1.3.15 - 2026-06-01
 
 - Added [NUVIO_PLUGIN.md](./NUVIO_PLUGIN.md): Nuvio `manifest.json` plugin usage (not CloudStream `repo.json`), aligned with official [DOCUMENTATION](https://github.com/yoruix/nuvio-providers/blob/template/DOCUMENTATION.md).

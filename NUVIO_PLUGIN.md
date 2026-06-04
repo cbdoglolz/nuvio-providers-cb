@@ -49,6 +49,7 @@ fork 自官方结构，保留 `build.js`、`src/` 多文件构建、Hermes 下 *
 | **HDHub4u** | 开 | 印度区片源，可能较慢 |
 | **4KHDHub** | 开 | 直链 MKV；Hub 走 `hubcloud.one` 镜像 |
 | **Vidlink / Vixsrc** | 开 | 在线 m3u8 |
+| **CineStream** | 开 | CSX 聚合：Vidflix / Playsrc / Hexa / Xpass / Videasy API（不是完整 CS 版 50+ 源） |
 | **CNCVerse** | 默认关 | 镜像限流，易出现约 10 分钟提示片 |
 | **UHDMovies** | 默认关 | 下载页仅 Hrefli 链，服务器侧常被 CF 挡 |
 | **MoviesMod** | 视网络 | 易 403 |
