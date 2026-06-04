@@ -382,11 +382,33 @@ function fetchCinemetaDetails(tmdbId, mediaType) {
         .catch(function () { return null; });
 }
 
+function fetchTmdbDetailsJa(tmdbId, mediaType) {
+    const url = TMDB_BASE_URL + '/' + mediaType + '/' + tmdbId +
+        '?api_key=' + TMDB_API_KEY + '&language=ja';
+    return fetch(url)
+        .then(function (res) {
+            if (!res.ok) return null;
+            return res.json();
+        })
+        .then(function (data) {
+            if (!data) return null;
+            return mediaType === 'movie'
+                ? (data.title || data.original_title)
+                : (data.name || data.original_name);
+        })
+        .catch(function () { return null; });
+}
+
 function fetchMetadataDetails(tmdbId, mediaType) {
     return fetchTmdbDetails(tmdbId, mediaType).then(function (details) {
-        if (details && details.title) return details;
-        console.log('[MovieBox] TMDB failed, trying Cinemeta fallback');
-        return fetchCinemetaDetails(tmdbId, mediaType);
+        if (!details || !details.title) {
+            console.log('[MovieBox] TMDB failed, trying Cinemeta fallback');
+            return fetchCinemetaDetails(tmdbId, mediaType);
+        }
+        return fetchTmdbDetailsJa(tmdbId, mediaType).then(function (jaTitle) {
+            if (jaTitle) details.jaTitle = jaTitle;
+            return details;
+        });
     });
 }
 
@@ -416,12 +438,20 @@ function ordinal(n) {
 
 function buildSearchTerms(details, mediaType, seasonNum) {
     const terms = [];
-    [details.title, details.originalTitle, details.originalName].forEach(base => {
+    [details.title, details.originalTitle, details.originalName, details.jaTitle].forEach(base => {
         if (!base) return;
         addUnique(terms, base);
         addUnique(terms, base.replace(/[-–—].*$/, ''));
         addUnique(terms, base.replace(/[:._-]+/g, ' '));
+        addUnique(terms, base.replace(/:/g, ' '));
+        addUnique(terms, base.replace(/:/g, ''));
         addUnique(terms, base.replace(/\s+/g, ''));
+        if (/re\s*:?\s*zero/i.test(base)) {
+            addUnique(terms, 'Re Zero');
+            addUnique(terms, 'Re ZERO');
+            addUnique(terms, 'Re:ZERO');
+            addUnique(terms, 'Re Zero kara');
+        }
         if (mediaType === 'tv' && seasonNum && parseInt(seasonNum, 10) > 1) {
             addUnique(terms, `${base} Season ${seasonNum}`);
             addUnique(terms, `${base} ${ordinal(seasonNum)} Season`);

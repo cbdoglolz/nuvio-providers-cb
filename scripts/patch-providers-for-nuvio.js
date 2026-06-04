@@ -35,11 +35,21 @@ var __cbKnownMeta = {
       original_name: 'Sherlock',
       first_air_date: '2010-07-25',
       external_ids: { imdb_id: 'tt1475582' }
+    },
+    '65942': {
+      id: 65942,
+      imdb_id: 'tt5607616',
+      name: 'Re:ZERO -Starting Life in Another World-',
+      original_name: 'Re:ゼロから始める異世界生活',
+      first_air_date: '2016-04-04',
+      external_ids: { imdb_id: 'tt5607616' }
     }
   },
   imdb: {
     tt0137523: { movie: '550' },
-    tt1475582: { tv: '19885' }
+    tt1475582: { tv: '19885' },
+    tt5607616: { tv: '65942' },
+    tt5607618: { tv: '65942' }
   }
 };
 var __cbRuntimeMeta = { movie: {}, tv: {}, imdb: {} };
@@ -168,6 +178,24 @@ function __cbNormalizeSeasonEpisode(season, episode) {
   return { season: s, episode: e };
 }
 
+function __cbCinemetaResolveImdb(imdbId, mediaType) {
+  if (!__cbNativeFetch) return Promise.resolve('');
+  var kind = mediaType === 'tv' ? 'series' : 'movie';
+  var url = 'https://v3-cinemeta.strem.io/meta/' + kind + '/' + imdbId + '.json';
+  return __cbNativeFetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    .then(function (res) {
+      if (!res || !res.ok) return null;
+      return res.json();
+    })
+    .then(function (data) {
+      if (data && data.meta && data.meta.moviedb_id) {
+        return String(data.meta.moviedb_id);
+      }
+      return '';
+    })
+    .catch(function () { return ''; });
+}
+
 function __cbResolveTmdbId(rawId, mediaType) {
   var id = String(rawId == null ? '' : rawId).trim();
   if (!id) return Promise.resolve('');
@@ -182,25 +210,38 @@ function __cbResolveTmdbId(rawId, mediaType) {
   return fetch(findUrl)
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        if (!data) return '';
-        if (mediaType === 'tv' && data.tv_results && data.tv_results[0]) {
-          return String(data.tv_results[0].id);
+        if (data) {
+          if (mediaType === 'tv' && data.tv_results && data.tv_results[0]) {
+            return String(data.tv_results[0].id);
+          }
+          if (data.movie_results && data.movie_results[0]) {
+            return String(data.movie_results[0].id);
+          }
+          if (data.tv_results && data.tv_results[0]) {
+            return String(data.tv_results[0].id);
+          }
         }
-        if (data.movie_results && data.movie_results[0]) {
-          return String(data.movie_results[0].id);
-        }
-        if (data.tv_results && data.tv_results[0]) {
-          return String(data.tv_results[0].id);
-        }
-        console.log('[cbrepo] TMDB find failed for IMDb ' + id);
-        return '';
+        return __cbCinemetaResolveImdb(id, mediaType).then(function (cineId) {
+          if (cineId) {
+            console.log('[cbrepo] Cinemeta resolved IMDb ' + id + ' -> TMDB ' + cineId);
+            return cineId;
+          }
+          var fallbackId = __cbKnownIdForImdb(id, mediaType);
+          if (fallbackId) {
+            console.log('[cbrepo] Using built-in IMDb map ' + id + ' -> TMDB ' + fallbackId);
+            return fallbackId;
+          }
+          console.log('[cbrepo] TMDB find failed for IMDb ' + id);
+          return '';
+        });
       })
       .catch(function () {
         var fallbackId = __cbKnownIdForImdb(id, mediaType);
         if (fallbackId) {
           console.log('[cbrepo] TMDB find network failed for IMDb ' + id + ', using built-in mapping ' + fallbackId);
+          return fallbackId;
         }
-        return fallbackId || '';
+        return __cbCinemetaResolveImdb(id, mediaType);
       });
   }
   return Promise.resolve(id);

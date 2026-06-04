@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.17 - 2026-06-04
+
+- **MovieBox**: Extra search aliases for Re:Zero-style titles; optional Japanese TMDB title for anime search.
+- **Patch layer**: Built-in + Cinemeta fallback when TMDB `find` has no match for an IMDb id (fixes Re:Zero `tt5607618` / `tt5607616` → TMDB `65942`).
+- **Manifest**: Clarify CNCVerse / UHDMovies are default-off by choice, not blocked by other plugins; users enable toggles in Nuvio Plugins.
+
 ## 1.3.16 - 2026-06-04
 
 - **CineStream** (`providers/cinestream.js`): Nuvio port of API backends from [cbdoglolz/CSX CineStream](https://github.com/cbdoglolz/CSX/tree/master/CineStream) — parallel Vidflix (madplay), Playsrc, Hexa (enc-dec), Xpass, Videasy (cdn/moviebox/primesrcme). Does not replace the full CS meta plugin (50+ scrapers); use existing cbrepo sources for MoviesMod, 4KHDHub, HDHub4u, etc.
