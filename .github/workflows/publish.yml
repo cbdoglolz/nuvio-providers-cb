@@ -42,13 +42,12 @@ jobs:
             const fs = require('fs');
             const sha = process.env.GITHUB_SHA.slice(0, 7);
             const sub = {
-              url: 'https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json',
-              urlGithubIo: 'https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json',
-              fallbackUrl: 'https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@' + sha + '/manifest.json',
+              url: 'https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json',
+              urlJsdelivr: 'https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json',
               version: m.version,
               updatedAt: m.updatedAt,
               commit: sha,
-              warning: 'Do not use raw.githubusercontent.com/.../main — CDN stale. Prefer github.io after Pages is enabled.'
+              warning: 'Use the GitHub Pages URL in Nuvio. The mutable jsDelivr branch URL can serve stale edge-cache content.'
             };
             fs.writeFileSync('_site/subscribe.json', JSON.stringify(sub, null, 2));
             fs.writeFileSync('_site/VERSION.txt', m.version + '\n' + sha + '\n');
@@ -83,19 +82,19 @@ jobs:
           echo "purge gh-pages root: HTTP ${code}"
           test "${code}" = "200"
 
-      - name: Verify published CDN content
+      - name: Verify published GitHub Pages content
         run: |
           set -e
           expected_version=$(node -p "require('./manifest.json').version")
-          manifest_url="https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json"
-          animekai_url="https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/animekai.js"
-          for attempt in 1 2 3 4 5; do
+          manifest_url="https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json"
+          animekai_url="https://cbdoglolz.github.io/nuvio-providers-cb/providers/animekai.js"
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
             actual_version=$(curl -fsS "${manifest_url}" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).version))")
-            echo "CDN verification attempt ${attempt}: expected ${expected_version}, got ${actual_version}"
+            echo "GitHub Pages verification attempt ${attempt}: expected ${expected_version}, got ${actual_version}"
             if [ "${actual_version}" = "${expected_version}" ] && curl -fsS "${animekai_url}" | grep -q "__CB_REPO_NUVIO_PATCHED__"; then
               exit 0
             fi
-            sleep 5
+            sleep 10
           done
-          echo "jsDelivr did not publish the expected manifest/provider content" >&2
+          echo "GitHub Pages did not publish the expected manifest/provider content" >&2
           exit 1

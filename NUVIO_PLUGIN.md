@@ -12,7 +12,7 @@
 2. **添加插件 URL**（不要用 `@main`，不要用 CloudStream 仓库地址）：
 
 ```
-https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json
+https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
 ```
 
 3. 保存后 **删除旧 cbrepo 再添加一次**（避免缓存旧 manifest）
@@ -20,7 +20,7 @@ https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json
 5. 确认 manifest 版本号与仓库一致（当前见 `manifest.json` 顶层 `version`）
 
 自检：浏览器打开  
-`https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/moviebox.js`  
+`https://cbdoglolz.github.io/nuvio-providers-cb/providers/moviebox.js`
 应包含字符串 **`__CB_REPO_NUVIO_PATCHED__`**（真机用的就是这份 JS，不是 GitHub `main` 上未 patch 的源码）。
 
 ---
@@ -59,7 +59,7 @@ fork 自官方结构，保留 `build.js`、`src/` 多文件构建、Hermes 下 *
 
 ## 4. 真机仍「全部搜不到」时
 
-1. 确认订阅的是 **`@gh-pages/manifest.json`**（见上文）
+1. 确认订阅的是 **GitHub Pages `manifest.json`**（见上文）
 2. 看 Nuvio 日志是否有 **`[cbrepo:源名]`**：
    - `getStreams id=tt…` → 已收到 IMDb，正在转 TMDB
    - `returned N stream(s)` → 该源有结果

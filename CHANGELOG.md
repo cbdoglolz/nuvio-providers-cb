@@ -6,6 +6,7 @@
 - **KissKH `0.1.0-cb1`**: Ported the Phisher Nuvio implementation, completed the Nuvio export and stream metadata contract, and kept it disabled because the source requires a per-episode `kkey` that the public implementation does not acquire.
 - **Repository audit**: Confirmed Phisher has KissKH but no Nuvio AnimeKai or SoraStream provider. AnimeKai came from yoruix; SoraStream remains absent.
 - **Publishing**: Fixed jsDelivr purge requests to use GET instead of the obsolete POST call that returned HTTP 405 while Actions still appeared successful. Publishing now fails unless the canonical CDN manifest matches the repository version and AnimeKai contains the Nuvio patch marker.
+- **Subscription URL**: Promoted `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json` to the primary Nuvio URL after the mutable jsDelivr `@gh-pages` alias returned different versions from different edge nodes. jsDelivr remains a secondary mirror.
 
 ## 1.3.17 - 2026-06-04
 

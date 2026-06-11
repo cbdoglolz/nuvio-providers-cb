@@ -5,7 +5,7 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 ## Operating Rules
 
 - Nuvio subscription URL must stay:
-  `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`
+  `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json`
 - Do not tell the user to use `raw.githubusercontent.com/.../main/manifest.json` or `cdn.jsdelivr.net/...@main/manifest.json`.
 - Every provider change must update:
   - top-level `manifest.json` version
@@ -35,6 +35,7 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 - Found the canonical jsDelivr URL still serving `1.3.17` after the successful deployment. The purge jobs were using POST and receiving HTTP 405, but never failed the workflow.
 - Manually purged manifest, version, subscription metadata, AnimeKai, and KissKH using the supported GET endpoint; verified the canonical CDN now serves manifest `1.3.18`, `VERSION.txt` commit `8980855`, and patched AnimeKai/KissKH files.
 - Updated `publish.yml` to use GET, fail on non-200 purge responses, and verify the canonical CDN version plus patch marker before reporting success.
+- The fixed jsDelivr `@gh-pages` URL still returned different manifest versions from different edges after successful purge. Promoted GitHub Pages to the primary Nuvio subscription URL and retained jsDelivr only as a secondary mirror.
 
 ## 2026-06-01
 

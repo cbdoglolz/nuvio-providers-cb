@@ -37,7 +37,7 @@
 ## 2. 订阅 URL（唯一推荐）
 
 ```
-https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json
+https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
 ```
 
 **禁止**用户继续用：
@@ -45,10 +45,10 @@ https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json
 - `raw.githubusercontent.com/.../main/manifest.json`（`@main` CDN 缓存，刷新无效）
 - `cdn.jsdelivr.net/.../main/manifest.json`（更旧）
 
-可选：GitHub Pages 开好后 `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json`（Settings → Pages → 分支 **gh-pages** / root，只需一次）。
+备用（可能出现边缘缓存不一致）：`https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`。
 
 **自检：** 浏览器打开  
-`https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/4khdhub.js`  
+`https://cbdoglolz.github.io/nuvio-providers-cb/providers/4khdhub.js`
 必须含字符串 **`__CB_REPO_NUVIO_PATCHED__`**（1.3.7 部署产物才有）。
 
 ---
