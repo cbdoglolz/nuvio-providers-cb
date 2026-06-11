@@ -7,13 +7,6 @@
 
 ---
 
-## 2026-06-11 Provider audit
-
-- Manifest `1.3.18`.
-- Restored AnimeKai from the actively maintained yoruix Nuvio implementation; it is enabled but marked limited pending device playback validation.
-- Ported KissKH from Phisher, completed the Nuvio export/stream contract, and left it disabled because the public code cannot acquire the required per-episode `kkey`.
-- No Nuvio SoraStream implementation was found in the three audited repositories.
-
 ## 0. 给 Codex 的一句话
 
 用户在 Nuvio 用 **cbrepo** 插件；**HdHub 单独插件里的 4KHDHub 能搜到片，cbrepo 里 12 个源曾全部搜不到**。已修 CDN 订阅、MovieBox Hermes、整仓 Nuvio 兼容层（1.3.5–1.3.12）。1.3.9 新增 **CNCVerse / NetflixMirror** provider，并加强 MovieBox 字幕映射；1.3.10 修复 `@gh-pages` CDN purge；1.3.11 针对 CNCVerse "too many requests" 占位视频做过滤但真机仍见 10 分钟警告；1.3.12 改走 CloudStream 当前 `/newtv/player.php` 播放路线。请读本文 + [NUVIO_SYNC.md](./NUVIO_SYNC.md)，默认 **push 到 main**（用户要求更新完就推送）。
@@ -37,7 +30,7 @@
 ## 2. 订阅 URL（唯一推荐）
 
 ```
-https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
+https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json
 ```
 
 **禁止**用户继续用：
@@ -45,10 +38,10 @@ https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json
 - `raw.githubusercontent.com/.../main/manifest.json`（`@main` CDN 缓存，刷新无效）
 - `cdn.jsdelivr.net/.../main/manifest.json`（更旧）
 
-备用（可能出现边缘缓存不一致）：`https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`。
+可选：GitHub Pages 开好后 `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json`（Settings → Pages → 分支 **gh-pages** / root，只需一次）。
 
 **自检：** 浏览器打开  
-`https://cbdoglolz.github.io/nuvio-providers-cb/providers/4khdhub.js`
+`https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/providers/4khdhub.js`  
 必须含字符串 **`__CB_REPO_NUVIO_PATCHED__`**（1.3.7 部署产物才有）。
 
 ---

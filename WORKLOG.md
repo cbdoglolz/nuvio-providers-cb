@@ -5,7 +5,7 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 ## Operating Rules
 
 - Nuvio subscription URL must stay:
-  `https://cbdoglolz.github.io/nuvio-providers-cb/manifest.json`
+  `https://cdn.jsdelivr.net/gh/cbdoglolz/nuvio-providers-cb@gh-pages/manifest.json`
 - Do not tell the user to use `raw.githubusercontent.com/.../main/manifest.json` or `cdn.jsdelivr.net/...@main/manifest.json`.
 - Every provider change must update:
   - top-level `manifest.json` version
@@ -22,20 +22,6 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
   - `git diff --check`
 - Do not commit `_site/`; it is only a local deploy simulation folder.
 - If Codex cannot push because GitHub 443 is blocked, record the exact local commit and tell the user/Cursor to run `git push origin main`.
-
-## 2026-06-11
-
-### 1.3.18 - Provider ecosystem audit and anime restoration
-
-- Compared `cbdoglolz/nuvio-providers-cb`, `yoruix/nuvio-providers`, and `phisher98/phisher-nuvio-providers`.
-- Restored `providers/animekai.js` from the maintained yoruix Nuvio implementation and marked it limited pending device playback validation.
-- Ported Phisher's `src/providers/kisskh.js`, added the missing CommonJS/global export and complete stream metadata, but left it disabled because its episode/subtitle endpoints require a `kkey` and the source does not implement a working key acquisition flow.
-- Confirmed no Nuvio `SoraStream` implementation exists in the three audited repositories.
-- Bumped the repository manifest to `1.3.18`; the existing publish workflow will include both files in patched `gh-pages` output and purge their jsDelivr paths automatically.
-- Found the canonical jsDelivr URL still serving `1.3.17` after the successful deployment. The purge jobs were using POST and receiving HTTP 405, but never failed the workflow.
-- Manually purged manifest, version, subscription metadata, AnimeKai, and KissKH using the supported GET endpoint; verified the canonical CDN now serves manifest `1.3.18`, `VERSION.txt` commit `8980855`, and patched AnimeKai/KissKH files.
-- Updated `publish.yml` to use GET, fail on non-200 purge responses, and verify the canonical CDN version plus patch marker before reporting success.
-- The fixed jsDelivr `@gh-pages` URL still returned different manifest versions from different edges after successful purge. Promoted GitHub Pages to the primary Nuvio subscription URL and retained jsDelivr only as a secondary mirror.
 
 ## 2026-06-01
 
