@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.3.17",
-  "updatedAt": "2026-06-04T18:00:00Z",
+  "version": "1.3.18",
+  "updatedAt": "2026-06-11T08:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -290,6 +290,53 @@
       "contentLanguage": [
         "en",
         "hin"
+      ]
+    },
+    {
+      "id": "animekai",
+      "name": "AnimeKai",
+      "description": "AnimeKai via AniList mapping and MegaUp extraction. Cloudflare and short-lived HLS links may require device-side retries.",
+      "version": "1.1.3-cb6",
+      "author": "Yoru / Nuvio Team",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/animekai.js",
+      "enabled": true,
+      "limited": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=animekai.to&sz=128",
+      "contentLanguage": [
+        "en",
+        "ja"
+      ]
+    },
+    {
+      "id": "kisskh",
+      "name": "KissKH",
+      "description": "Asian drama and anime provider. Disabled because KissKH playback currently requires a per-episode kkey with no stable public acquisition flow.",
+      "version": "0.1.0-cb1",
+      "author": "Phisher / cbrepo port",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/kisskh.js",
+      "enabled": false,
+      "limited": true,
+      "formats": [
+        "m3u8",
+        "mp4"
+      ],
+      "logo": "https://www.google.com/s2/favicons?domain=kisskh.nl&sz=128",
+      "contentLanguage": [
+        "en",
+        "ko",
+        "zh",
+        "th"
       ]
     },
     {

@@ -23,6 +23,16 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 - Do not commit `_site/`; it is only a local deploy simulation folder.
 - If Codex cannot push because GitHub 443 is blocked, record the exact local commit and tell the user/Cursor to run `git push origin main`.
 
+## 2026-06-11
+
+### 1.3.18 - Provider ecosystem audit and anime restoration
+
+- Compared `cbdoglolz/nuvio-providers-cb`, `yoruix/nuvio-providers`, and `phisher98/phisher-nuvio-providers`.
+- Restored `providers/animekai.js` from the maintained yoruix Nuvio implementation and marked it limited pending device playback validation.
+- Ported Phisher's `src/providers/kisskh.js`, added the missing CommonJS/global export and complete stream metadata, but left it disabled because its episode/subtitle endpoints require a `kkey` and the source does not implement a working key acquisition flow.
+- Confirmed no Nuvio `SoraStream` implementation exists in the three audited repositories.
+- Bumped the repository manifest to `1.3.18`; the existing publish workflow will include both files in patched `gh-pages` output and purge their jsDelivr paths automatically.
+
 ## 2026-06-01
 
 ### 1.3.12 - CNCVerse newtv/player playback route

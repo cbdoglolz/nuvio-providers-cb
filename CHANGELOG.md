@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.18 - 2026-06-11
+
+- **AnimeKai `1.1.3-cb6`**: Restored the actively maintained yoruix Nuvio provider, including AniList mapping, Cloudflare retry support, MegaUp extraction, subtitles, and Nuvio exports. It remains marked limited because signed HLS playback still needs device validation.
+- **KissKH `0.1.0-cb1`**: Ported the Phisher Nuvio implementation, completed the Nuvio export and stream metadata contract, and kept it disabled because the source requires a per-episode `kkey` that the public implementation does not acquire.
+- **Repository audit**: Confirmed Phisher has KissKH but no Nuvio AnimeKai or SoraStream provider. AnimeKai came from yoruix; SoraStream remains absent.
+
 ## 1.3.17 - 2026-06-04
 
 - **MovieBox**: Extra search aliases for Re:Zero-style titles; optional Japanese TMDB title for anime search.
