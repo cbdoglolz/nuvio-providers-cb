@@ -58,6 +58,7 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
   - Re:Zero TMDB `65942` currently matches the correct season but its AllWish
     episode/server chain returns no usable HTTP stream.
 - Bumped manifest to `1.3.18` and AllWish to `1.0.0-cb1`.
+- Implementation commit: `25f0e4a Add working AllWish anime provider`.
 - Required device verification after publish:
   - Refresh cbrepo and confirm version `1.3.18`.
   - Test *Dorohedoro* S1E1 and *Solo Leveling* S1E1 under AllWish.
