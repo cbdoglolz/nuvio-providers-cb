@@ -59,6 +59,18 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
     episode/server chain returns no usable HTTP stream.
 - Bumped manifest to `1.3.18` and AllWish to `1.0.0-cb1`.
 - Implementation commit: `25f0e4a Add working AllWish anime provider`.
+- Handoff record commit: `1d9b013 Record AllWish handoff commit`.
+- Publish verification:
+  - GitHub Actions run `27348563713` completed successfully.
+  - `origin/gh-pages` deployed as `701278f`.
+  - Deployed `manifest.json` reports `1.3.18`; deployed AllWish contains
+    `__CB_REPO_NUVIO_PATCHED__`.
+  - jsDelivr initially served a mixed stale manifest (new version number but an
+    old scraper list containing AnimeKai/KissKH and no AllWish).
+  - Explicitly purged `manifest.json`, `subscribe.json`, and
+    `providers/allwish.js` through `purge.jsdelivr.net`.
+  - Final CDN check reports `1.3.18` with AllWish present and the removed
+    AnimeKai/KissKH entries absent.
 - Required device verification after publish:
   - Refresh cbrepo and confirm version `1.3.18`.
   - Test *Dorohedoro* S1E1 and *Solo Leveling* S1E1 under AllWish.
