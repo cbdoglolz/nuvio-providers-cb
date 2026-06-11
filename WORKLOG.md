@@ -23,6 +23,47 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
 - Do not commit `_site/`; it is only a local deploy simulation folder.
 - If Codex cannot push because GitHub 443 is blocked, record the exact local commit and tell the user/Cursor to run `git push origin main`.
 
+## 2026-06-11
+
+### 1.3.18 - Phisher anime integration gate and AllWish
+
+- Pulled current `main` at `44edc5d` and preserved the user's existing
+  `HANDOFF.md` worktree edit.
+- Cloned `phisher98/phisher-nuvio-providers` beside this repository and tested
+  providers against live sites before importing anything.
+- HiAnime findings:
+  - Phisher removed HiAnime from its manifest in commit `ac35b2a` on
+    2026-05-24.
+  - Its current code expects `MALSync.Sites.Zoro`; the live MALSync response no
+    longer contains that site key.
+  - The old `hianimez.*` domains in the provider are parked, timed out, or
+    returned Cloudflare 522.
+  - Decision: do not publish a known-zero HiAnime provider.
+- MoviesDrive findings:
+  - Promise-compatible source, but both *Fight Club* TMDB `550` and *Sherlock*
+    TMDB `19885` S1E1 failed at `new1.moviesdrive.surf/searchapi.php`.
+  - Decision: do not import it in this release.
+- AllWish findings and changes:
+  - Upstream live test returned a direct MegaPlay m3u8.
+  - Added `providers/allwish.js` as a Promise-only/Hermes-safe port.
+  - Removed Node `Buffer` dependency.
+  - Added requested-season matching. This fixes Re:Zero S1 selecting the
+    upstream site's Season 4 result.
+  - Reject incomplete non-HTTP player values instead of exposing fake streams.
+  - Replaced upstream RapidCloud playback headers with MegaPlay headers after
+    direct validation: RapidCloud returned HTTP 403 while MegaPlay returned a
+    valid `#EXTM3U` playlist.
+  - Live verification: *Solo Leveling* TMDB `127532` S1E1 returned SUB + DUB;
+    *Dorohedoro* TMDB `94404` S1E1 returned SUB + DUB.
+  - Re:Zero TMDB `65942` currently matches the correct season but its AllWish
+    episode/server chain returns no usable HTTP stream.
+- Bumped manifest to `1.3.18` and AllWish to `1.0.0-cb1`.
+- Required device verification after publish:
+  - Refresh cbrepo and confirm version `1.3.18`.
+  - Test *Dorohedoro* S1E1 and *Solo Leveling* S1E1 under AllWish.
+  - Confirm playback, seeking, and whether Nuvio displays embedded subtitle
+    tracks (currently English/multilingual depending on title).
+
 ## 2026-06-01
 
 ### 1.3.12 - CNCVerse newtv/player playback route

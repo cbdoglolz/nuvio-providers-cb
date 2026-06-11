@@ -1,7 +1,7 @@
 {
   "name": "cbrepo",
-  "version": "1.3.17",
-  "updatedAt": "2026-06-04T18:00:00Z",
+  "version": "1.3.18",
+  "updatedAt": "2026-06-11T12:00:00Z",
   "scrapers": [
     {
       "id": "4khdhub",
@@ -41,6 +41,27 @@
         "m3u8"
       ],
       "logo": "https://www.google.com/s2/favicons?domain=kaa.lt&sz=128",
+      "contentLanguage": [
+        "en",
+        "ja"
+      ]
+    },
+    {
+      "id": "allwish",
+      "name": "AllWish",
+      "description": "Anime streaming with season-aware matching and MegaPlay extraction.",
+      "version": "1.0.0-cb1",
+      "author": "Phisher / cbrepo port",
+      "supportedTypes": [
+        "movie",
+        "tv"
+      ],
+      "filename": "providers/allwish.js",
+      "enabled": true,
+      "formats": [
+        "m3u8"
+      ],
+      "logo": "https://all-wish.me/assets/logo.png",
       "contentLanguage": [
         "en",
         "ja"

@@ -3,7 +3,7 @@
 > **最后更新：2026-06-01**  
 > **仓库：** `https://github.com/cbdoglolz/nuvio-providers-cb`（fork，manifest 名 **cbrepo**）  
 > **分支：** `main`（已与 `origin/main` 同步）  
-> **最新版本：** manifest **1.3.13**，最新 commit **push 后见 `origin/main`**
+> **最新版本：** manifest **1.3.18**，本轮 commit 见 `WORKLOG.md`
 
 ---
 
@@ -175,3 +175,27 @@ git push origin main   # 用户要求：改完默认 push；触发 publish.yml
 
 `kkey` 每集一次性 token；Phisher 用 `local.properties` 的 `KissKh=` / `KisskhSub=` URL 前缀。公开 repo 无稳定 key。
 > Mandatory handoff rule: read and update `WORKLOG.md` on every repair round. `HANDOFF.md` is the status overview; `WORKLOG.md` is the step-by-step ledger for Cursor/Codex continuation.
+
+---
+
+## 13. 2026-06-11 continuation status (authoritative)
+
+- Current release being prepared: **cbrepo 1.3.18**.
+- Added **AllWish `1.0.0-cb1`** as the first successful live-tested import
+  from `phisher98/phisher-nuvio-providers`.
+- Live local results:
+  - *Solo Leveling* TMDB `127532` S1E1: 2 m3u8 streams (SUB/DUB).
+  - *Dorohedoro* TMDB `94404` S1E1: 2 m3u8 streams (SUB/DUB).
+  - *Re:Zero* TMDB `65942`: correct season is selected, but no usable stream
+    currently comes back from AllWish.
+- HiAnime is not ready to import. Its Phisher implementation depends on the
+  removed MALSync `Sites.Zoro` mapping and dead/522 old domains; Phisher also
+  removed it from the published manifest on 2026-05-24.
+- MoviesDrive was tested and not imported: live search requests failed for
+  *Fight Club* and *Sherlock*.
+- Next provider priority after the AllWish phone test:
+  1. Repair a current HiAnime route only if a live API/domain can be proven.
+  2. Test Phisher XDMovies.
+  3. Revisit AnimeKai using the current MALSync `Sites.AnimeKAI` mapping.
+- Detailed commands, evidence, and test IDs are in `WORKLOG.md` under
+  `2026-06-11`.

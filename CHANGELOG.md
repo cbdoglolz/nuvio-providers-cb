@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.3.18 - 2026-06-11
+
+- **AllWish `1.0.0-cb1`**: Added a native Nuvio anime provider ported from
+  `phisher98/phisher-nuvio-providers`.
+- Replaced upstream `async/await` and Node `Buffer` usage with a Promise-only,
+  Hermes-safe implementation.
+- Fixed upstream search behavior that always selected the first result:
+  TV titles now select the requested season and avoid specials/movies.
+- Rejects incomplete player values such as `&ep_id=...`; only valid HTTP(S)
+  streams are returned.
+- Uses the MegaPlay origin/referer required by the current media CDN; the
+  upstream RapidCloud headers return HTTP 403 for these playlists.
+- Local live tests returned two m3u8 streams each for *Solo Leveling* TMDB
+  `127532` S1E1 and *Dorohedoro* TMDB `94404` S1E1.
+- HiAnime was not imported: Phisher removed it from its manifest on 2026-05-24,
+  MALSync no longer exposes the expected `Sites.Zoro` mapping, and the old
+  HiAnime domains currently fail.
+
 ## 1.3.17 - 2026-06-04
 
 - **MovieBox**: Extra search aliases for Re:Zero-style titles; optional Japanese TMDB title for anime search.
