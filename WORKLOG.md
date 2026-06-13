@@ -77,6 +77,50 @@ This file is the handoff ledger for Codex/Cursor. Update it on every repair roun
   - Confirm playback, seeking, and whether Nuvio displays embedded subtitle
     tracks (currently English/multilingual depending on title).
 
+## 2026-06-13
+
+### D3adlyRocket All-in-One-Nuvio audit
+
+- Audited `D3adlyRocket/All-in-One-Nuvio` at commit `dfc2b23`.
+- Its manifest enables all 61 providers at once. A uniform live test used:
+  - *Dorohedoro* TMDB `94404` S1E1 for anime providers.
+  - *Moving* TMDB `126485` S1E1 for Asian drama providers.
+  - *Fight Club* TMDB `550` for general movie providers.
+- Result summary:
+  - 27 providers returned at least one stream object.
+  - 30 returned an empty array.
+  - 3 timed out after 35 seconds: MoviesMod, UHDMovies, Xpass.
+  - 1 crashed: MovieBox (`CryptoJS is not defined`).
+- Important failures:
+  - AnimeKai resolved Dorohedoro to the correct AniList entry and episode, but
+    failed at the encrypted `links/list` request.
+  - MoviesDrive found search candidates for both IMDb and title queries, then
+    rejected all candidates because of its match/scoring logic.
+  - DooFlix returned HTTP 401.
+  - Torrentio returned HTML instead of JSON.
+  - VidFast reported an incomplete decryption configuration.
+  - KissKH, AnimePahe, AnimeSalt, AnimeWorld, OnlyKDrama, OneTouchTV and many
+    general providers returned zero for the selected test title.
+- Providers that returned useful-looking results in this audit:
+  - Anime: AllAnime, AllWish, AnikotoTV, Anime-Sama, Animetsu, HiAnime.
+  - General: 4KHDHub/4KHDHubNew, Castle, CineFreak, CineMM, GoatAPI, HDHub4u,
+    MovieBlast, Movix, MultiVid, NetMirror, NoTorrent, Peachify, PlayIMDb,
+    StreamFlix, VegaMovies, VidEasy, VidLink, ZinkMovies.
+- Duplicate-source warning:
+  - AllWish, AnikotoTV and HiAnime returned the same underlying MewStream
+    Dorohedoro URLs; they are not three independent sources.
+  - MultiVid and VidEasy returned the same DigitalSun streams.
+  - 4KHDHub and 4KHDHubNew overlap heavily.
+- Recommended integration order into cbrepo:
+  1. HiAnime, after strict stream/segment validation and deduplication against
+     AllWish.
+  2. AllAnime and Animetsu as genuinely different anime fallbacks.
+  3. CineMM, GoatAPI, Peachify and PlayIMDb for general movie/TV coverage.
+  4. Fix AnimeKai separately at its encrypted request boundary.
+- Do not import all 61 providers or enable them by default. Each candidate must
+  pass title/year/season matching, final playlist or file validation, Nuvio
+  patch compatibility, and phone playback/seek testing.
+
 ## 2026-06-01
 
 ### 1.3.12 - CNCVerse newtv/player playback route

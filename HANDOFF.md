@@ -199,3 +199,20 @@ git push origin main   # 用户要求：改完默认 push；触发 publish.yml
   3. Revisit AnimeKai using the current MALSync `Sites.AnimeKAI` mapping.
 - Detailed commands, evidence, and test IDs are in `WORKLOG.md` under
   `2026-06-11`.
+
+---
+
+## 14. 2026-06-13 All-in-One-Nuvio audit
+
+- External repo checked:
+  `https://github.com/D3adlyRocket/All-in-One-Nuvio`.
+- It advertises 61 enabled providers, but the live audit produced 27 non-empty,
+  30 empty, 3 timeout and 1 runtime-error result.
+- The count is inflated by duplicate backends. In the anime test, AllWish,
+  AnikotoTV and HiAnime returned the same MewStream media URLs.
+- Best next cbrepo candidates are HiAnime, AllAnime and Animetsu. For general
+  content, inspect CineMM, GoatAPI, Peachify and PlayIMDb.
+- AnimeKai remains a separate repair: metadata and episode mapping work, but
+  its encrypted `links/list` request fails.
+- Full evidence and the test matrix are recorded in `WORKLOG.md` under
+  `2026-06-13`.
